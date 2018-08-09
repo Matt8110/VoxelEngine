@@ -2,7 +2,9 @@ package Utils;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.nio.FloatBuffer;
+import java.util.Formatter;
 import java.util.List;
 import java.util.Random;
 
@@ -14,15 +16,18 @@ import org.lwjgl.util.vector.Vector3f;
 import org.newdawn.slick.opengl.Texture;
 import org.newdawn.slick.opengl.TextureLoader;
 
+import Blocks.Chunk;
 import VoxelEngine.Camera;
 
 public class Utils {
 
 	private static Matrix4f mat;
 	
-	private static Random ran = new Random();
+	public static Random ran = new Random();
 	private static float[] tempArray;
 	private static int randomNumber;
+	
+	private static Formatter format;
 	
 	public static FloatBuffer asFloatBuffer(float[] data) {
 		
@@ -31,6 +36,28 @@ public class Utils {
 		buf.flip();
 		
 		return buf;
+		
+	}
+	
+	public static void saveChangesToFile(Chunk chunk) {
+		
+		try {
+			
+			if (!chunk.changes.isEmpty()) {
+			
+				format = new Formatter(new File("chunks/" + (int)chunk.position.x + "" + (int)chunk.position.y + ".chunk"));
+				
+				for (String str : chunk.changes.values()) {
+					format.format(str);
+				}
+				
+				format.close();
+			
+			}
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
 		
 	}
 	

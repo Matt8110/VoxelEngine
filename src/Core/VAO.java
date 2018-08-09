@@ -50,12 +50,12 @@ public class VAO {
 	
 	public void putDataInVAO(float[] vertices, float[] texCoords) {
 		
-		vertexCount = vertices.length/3;
+		vertexCount = vertices.length/2;
 		
 		vaoID = GL30.glGenVertexArrays();
 		GL30.glBindVertexArray(vaoID);
 		
-		putDataInVBO(vertices, 0, 3);
+		putDataInVBO(vertices, 0, 2);
 		putDataInVBO(texCoords, 1, 2);
 		
 		GL30.glBindVertexArray(0);
@@ -71,6 +71,19 @@ public class VAO {
 		modifyVBO(vertices, 0);
 		modifyVBO(normals, 1);
 		modifyVBO(texCoords, 2);
+		
+		GL30.glBindVertexArray(0);
+		
+	}
+	
+	public void modifyVAO(float[] vertices, float[] texCoords) {
+		
+		vertexCount = vertices.length/2;
+		
+		GL30.glBindVertexArray(vaoID);
+		
+		modifyVBO(vertices, 0);
+		modifyVBO(texCoords, 1);
 		
 		GL30.glBindVertexArray(0);
 		

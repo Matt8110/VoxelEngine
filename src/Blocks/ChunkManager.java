@@ -1,8 +1,11 @@
 package Blocks;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
 
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
@@ -21,6 +24,7 @@ public class ChunkManager {
 	public static int viewDistanceDivide = viewDistance/2;
 	
 	public static List<Chunk> renderChunks = Collections.synchronizedList(new ArrayList<Chunk>());
+	public static List<Chunk> waitingChunks = Collections.synchronizedList(new ArrayList<Chunk>());
 	public static List<Chunk> buildChunks = Collections.synchronizedList(new ArrayList<Chunk>());
 	public static int blockTextures;
 	
@@ -71,16 +75,32 @@ public class ChunkManager {
 		
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, blockTextures);
 		
-		
+		for (int i = 0; i < waitingChunks.size(); i++) {
+			
+			renderChunks.add(waitingChunks.get(i));
+			waitingChunks.remove(i);
+			
+			
+		}
 		
 		for (int i = 0; i < renderChunks.size(); i++) {
 			
-			renderChunks.get(i).renderAndUpdate();
+			try {
 			
-			if ((renderChunks.get(i).needsRebuilt || renderChunks.get(i).needsRegenerated) && !renderChunks.get(i).beingRebuilt) {
-				renderChunks.get(i).beingRebuilt = true;
-				buildChunks.add(renderChunks.get(i));
-				//renderChunks.remove(i);
+				renderChunks.get(i).renderAndUpdate();
+				
+				if ((renderChunks.get(i).needsRebuilt || renderChunks.get(i).needsRegenerated) && !renderChunks.get(i).beingRebuilt) {
+					renderChunks.get(i).beingRebuilt = true;
+					buildChunks.add(renderChunks.get(i));
+					//renderChunks.remove(i);
+				}
+			
+			}catch(Exception e) {
+				System.err.println("WARNING: Failed to render");
+			}
+			
+			if (renderChunks.get(i).needsCleaned) {
+				renderChunks.remove(i);
 			}
 			
 		}
@@ -91,9 +111,11 @@ public class ChunkManager {
 		
 		for (int i = 0; i < list.size(); i++) {
 			
-			if (list.get(i).position.x == x && list.get(i).position.y == z) {
-				return i;
-			}
+			if (list.size() >= i) 
+				if ((int)list.get(i).position.x == (int)x && (int)list.get(i).position.y == (int)z) {
+					return i;
+				}
+			
 			
 		}
 		
@@ -110,47 +132,53 @@ public class ChunkManager {
 		
 			if (playerChunkX > lastPlayerChunkX) {
 				for (int i = 0; i < viewDistance; i++) {
-					//buildChunks.add(new Chunk(playerChunkX + viewDistanceDivide, (playerChunkZ - viewDistanceDivide) + i));
 					
 					currentChunk = getChunkListLocation((lastPlayerChunkX - (viewDistanceDivide))*chunkWidth, ((lastPlayerChunkZ - viewDistanceDivide) + i)*chunkWidth, renderChunks);
 					
 					if (currentChunk != -1) {
 						
-						//System.out.println("WORKING");
+						Utils.saveChangesToFile(renderChunks.get(currentChunk));
 						
 						renderChunks.get(currentChunk).position.x = (playerChunkX + viewDistanceDivide) * chunkWidth;
 						renderChunks.get(currentChunk).position.y = ((playerChunkZ - viewDistanceDivide) + i) * chunkWidth;
 						renderChunks.get(currentChunk).needsRegenerated = true;
-						
-						//renderChunks.remove(currentChunk);
+						renderChunks.get(currentChunk).changes.clear();
 					}
 				}
 			}
 			
 			if (playerChunkX < lastPlayerChunkX) {
 				for (int i = 0; i < viewDistance; i++) {
-					//buildChunks.add(new Chunk(playerChunkX - viewDistanceDivide, (playerChunkZ - viewDistanceDivide) + i));
 					
 					currentChunk = getChunkListLocation((lastPlayerChunkX + (viewDistanceDivide))*chunkWidth, ((lastPlayerChunkZ - viewDistanceDivide) + i)*chunkWidth, renderChunks);
 					
 					if (currentChunk != -1) {
+						
+						Utils.saveChangesToFile(renderChunks.get(currentChunk));
+						
 						renderChunks.get(currentChunk).position.x = (playerChunkX - viewDistanceDivide) * chunkWidth;
 						renderChunks.get(currentChunk).position.y = ((playerChunkZ - viewDistanceDivide) + i) * chunkWidth;
 						renderChunks.get(currentChunk).needsRegenerated = true;
+						renderChunks.get(currentChunk).changes.clear();
+						
 					}
 				}
 			}
 			
 			if (playerChunkZ > lastPlayerChunkZ) {
 				for (int i = 0; i < viewDistance; i++) {
-					//buildChunks.add(new Chunk((playerChunkX - viewDistanceDivide) + i, playerChunkZ + viewDistanceDivide));
 					
 					currentChunk = getChunkListLocation(((lastPlayerChunkX - viewDistanceDivide) + i)*chunkWidth,  (lastPlayerChunkZ - (viewDistanceDivide))*chunkWidth, renderChunks );
 					
 					if (currentChunk != -1) {
+						
+						Utils.saveChangesToFile(renderChunks.get(currentChunk));
+						
 						renderChunks.get(currentChunk).position.x = ((playerChunkX - viewDistanceDivide) + i) * chunkWidth;
 						renderChunks.get(currentChunk).position.y = (playerChunkZ + viewDistanceDivide) * chunkWidth;
 						renderChunks.get(currentChunk).needsRegenerated = true;
+						renderChunks.get(currentChunk).changes.clear();
+						
 					}
 				}
 			}
@@ -158,14 +186,18 @@ public class ChunkManager {
 			if (playerChunkZ < lastPlayerChunkZ) {
 				
 				for (int i = 0; i < viewDistance; i++) {
-					//buildChunks.add(new Chunk((playerChunkX - viewDistanceDivide) + i, playerChunkZ - viewDistanceDivide));
 					
 					currentChunk = getChunkListLocation(((lastPlayerChunkX - viewDistanceDivide) + i)*chunkWidth,  (lastPlayerChunkZ + (viewDistanceDivide))*chunkWidth, renderChunks );
 					
 					if (currentChunk != -1) {
+						
+						Utils.saveChangesToFile(renderChunks.get(currentChunk));
+						
 						renderChunks.get(currentChunk).position.x = ((playerChunkX - viewDistanceDivide) + i) * chunkWidth;
 						renderChunks.get(currentChunk).position.y = (playerChunkZ - viewDistanceDivide) * chunkWidth;
 						renderChunks.get(currentChunk).needsRegenerated = true;
+						renderChunks.get(currentChunk).changes.clear();
+						
 					}
 				}
 			}
@@ -204,7 +236,7 @@ public class ChunkManager {
 				
 					for (int i = 0; i < buildChunks.size(); i++) {
 						
-						chunk = buildChunks.get(i);
+						chunk = buildChunks.get(i).clone();
 						
 						if (!chunk.needsRebuilt) {
 							fillChunk();
@@ -212,10 +244,9 @@ public class ChunkManager {
 						
 						buildChunk();
 						
-						
-						
-						if (chunk.needsRebuilt) {
-							renderChunks.remove(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks));
+						if (chunk.needsRebuilt || chunk.needsRegenerated) {
+							renderChunks.get(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks)).needsCleaned = true;
+							//renderChunks.remove(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks));
 						}
 						
 						chunk.built = true;
@@ -223,8 +254,10 @@ public class ChunkManager {
 						chunk.needsRegenerated = false;
 						chunk.beingRebuilt = false;
 						
-						renderChunks.add(chunk);
+						waitingChunks.add(chunk);
 						buildChunks.remove(i);
+						
+						chunk = null;
 					}
 					
 					
@@ -242,27 +275,98 @@ public class ChunkManager {
 		
 		public void fillChunk() {
 			
-			for (int z = 0; z < chunkWidth; z++) {
-				for (int x = 0; x < chunkWidth; x++) {
-					
-					float height = (float) (p.getValue((chunk.position.x + x)/100.0f, (chunk.position.y + z)/100.0f, 0.1f)+1)*10;
-					
-					for (int y = 0; y < chunkHeight; y++) {
+			
+				
+				for (int z = 0; z < chunkWidth; z++) {
+					for (int x = 0; x < chunkWidth; x++) {
 						
-						chunk.blocks[x][y][z] = new Block();
+						float height = (float) (p.getValue((chunk.position.x + x)/100.0f, (chunk.position.y + z)/100.0f, 0.1f)+1)*10;
 						
-						if (y < height+50) {
-							chunk.blocks[x][y][z].blockType = BlockType.DIRT;
-							chunk.blocks[x][y][z].isActive = true;
-						}else if (y > height+50 && y < height+51) {
-							chunk.blocks[x][y][z].blockType = BlockType.GRASS;
-							chunk.blocks[x][y][z].isActive = true;
+						for (int y = 0; y < chunkHeight; y++) {
+							
+							if (!chunk.needsRegenerated)
+								chunk.blocks[x][y][z] = new Block();
+							else
+								chunk.blocks[x][y][z].isActive = false;
+							
+							
+								
+								if (y < height+45) {
+									
+									if (Utils.ran.nextInt(100) == 0) {
+										chunk.blocks[x][y][z].blockType = BlockType.COAL;
+									}else if (Utils.ran.nextInt(2000) == 0) {
+										chunk.blocks[x][y][z].blockType = BlockType.GOLD;
+									}else if (Utils.ran.nextInt(4000) == 0) {
+										chunk.blocks[x][y][z].blockType = BlockType.DIAMOND;
+									}else {
+										chunk.blocks[x][y][z].blockType = BlockType.STONE;
+									}
+									
+									
+									chunk.blocks[x][y][z].isActive = true;
+								}
+								else if (y < height+50) {
+									chunk.blocks[x][y][z].blockType = BlockType.DIRT;
+									chunk.blocks[x][y][z].isActive = true;
+								}else if (y > height+50 && y < height+51) {
+									chunk.blocks[x][y][z].blockType = BlockType.GRASS;
+									chunk.blocks[x][y][z].isActive = true;
+								}
+	
+							
 						}
-
-						
 					}
 				}
-			}
+				
+				try {
+					
+					File file = new File("chunks/" + (int)chunk.position.x + "" + (int)chunk.position.y + ".chunk");
+					
+				if (file.exists()) {
+					
+					//System.out.println("Loaded chunk");
+					
+					Scanner scan = new Scanner(file);
+					
+					while (scan.hasNext()) {
+						
+						int identifier = scan.nextInt();
+						
+						if (identifier == 1) {
+							
+							int blockType = scan.nextInt();
+							int xPos = scan.nextInt();
+							int yPos = scan.nextInt();
+							int zPos = scan.nextInt();
+							
+							chunk.changes.put(xPos + "" + yPos + "" + zPos, "1 " + blockType + " " + xPos + " " + yPos + " " + zPos + " ");
+							
+							chunk.blocks[xPos][yPos][zPos].isActive = true;
+							chunk.blocks[xPos][yPos][zPos].blockType = BlockType.getByInt(blockType);
+							
+						}
+						
+						if (identifier == 0) {
+							
+							int xPos = scan.nextInt();
+							int yPos = scan.nextInt();
+							int zPos = scan.nextInt();
+							
+							chunk.changes.put(xPos + "" + yPos + "" + zPos, "0 " + xPos + " " + yPos + " " + zPos + " ");
+							
+							chunk.blocks[xPos][yPos][zPos].isActive = false;
+							
+						}
+						
+					}
+					
+					scan.close();
+			
+				}
+					}catch(Exception e) {
+						e.printStackTrace();
+					}
 			
 		}
 		

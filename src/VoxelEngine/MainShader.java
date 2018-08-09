@@ -20,7 +20,7 @@ public class MainShader extends Shader{
 		transformationMatrixPosition = super.getUniformLocation("transformationMatrix");
 		
 		useShader();
-		super.setMatrix4(projectionMatrixPosition, Utils.getProjectionMatrix(Main.fov, 0.1f, 1000));
+		super.setMatrix4(projectionMatrixPosition, Utils.getProjectionMatrix(Main.fov, 0.01f, 1000));
 		
 	}
 	

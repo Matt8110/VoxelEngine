@@ -55,13 +55,13 @@ public class Texture2D {
 		float scaledH = (scalerY * scale.y) + scaledY;
 		
 		float[] vertices = {
-				scaledX, scaledY, 0,
-				scaledX, scaledH, 0,
-				scaledW, scaledY, 0,
+				scaledX, scaledY,
+				scaledX, scaledH,
+				scaledW, scaledY,
 				
-				scaledW, scaledY, 0,
-				scaledX, scaledH, 0,
-				scaledW, scaledH, 0
+				scaledW, scaledY,
+				scaledX, scaledH,
+				scaledW, scaledH,
 				
 		};
 		

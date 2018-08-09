@@ -1,28 +1,39 @@
 package VoxelEngine;
 
+import org.lwjgl.LWJGLException;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 import org.lwjgl.util.vector.Vector2f;
 
+import Blocks.Chunk;
 import Blocks.ChunkManager;
 import Core.Shader;
+import Gui.Font;
+import Gui.Text;
 import Gui.Texture2D;
+import Utils.*;
 
 public class Main {
 
 	public static MainShader shader;
-	public static Shader shader2D;
+	public static Shader shader2D, textShader;
 	
 	public static int fov = 70;
-	public static float mouseSensitivity = 0.1f;
+	public static float mouseSensitivity = 0.075f;
 	
 	public static long lastTime = 0;
 	public static float deltaTime = 0;
 	public static boolean isRunning = true;
 	
 	public static boolean fullscreen = true;
+	
+	public static Font font;
+	public static Text text;
+	public static Text memUse;
 	
 	public static void main(String args[]) {
 		
@@ -37,15 +48,18 @@ public class Main {
 		
 		shader = new MainShader("shaders/vertex.vert", "shaders/fragment.frag");
 		shader2D = new Shader("shaders/2d.vert", "shaders/2d.frag");
+		textShader = new Shader("shaders/text.vert", "shaders/text.frag");
+		
+		font = new Font("Fonts/candara.fnt");
 		
 		Texture2D crosshair = new Texture2D("crosshair.png", new Vector2f(Display.getWidth()/2-16, Display.getHeight()/2-16), new Vector2f(32, 32));
-		
 		
 		Camera.initCamera();
 		
 		ChunkManager.initChunks();
 		
-		
+		text = new Text(font, "                       ", 16, 16, 0.5f);
+		memUse = new Text(font, "                       ", 16, 64, 0.5f);
 		
 		lastTime = System.currentTimeMillis();
 		
@@ -60,6 +74,9 @@ public class Main {
 			shader.useShader();
 			
 			//System.out.println((startMemory - GL11.glGetInteger(0x9049))/1000);
+			
+			memUse.updateText(String.valueOf((startMemory - GL11.glGetInteger(0x9049))/1000));
+			//memUse.updateText(String.valueOf(ChunkManager.renderChunks.size()));
 			
 			ChunkManager.renderChunks();
 			
@@ -77,6 +94,10 @@ public class Main {
 				ChunkManager.hasLoaded = true;
 			}
 			
+			//Drawing text
+			textShader.useShader();
+			text.render();
+			memUse.render();
 			
 			Display.update();
 			//Display.sync(60);
@@ -85,6 +106,10 @@ public class Main {
 		
 		Display.destroy();
 		isRunning = false;
+		
+		for (Chunk chunk : ChunkManager.renderChunks) {
+			Utils.saveChangesToFile(chunk);
+		}
 		
 		}
 	
@@ -108,8 +133,13 @@ public class Main {
 		
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
 		GL11.glEnable(GL11.GL_CULL_FACE);
+		GL11.glEnable (GL11.GL_BLEND); 
+		GL11.glBlendFunc (GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		//GL11.glEnable(GL30.GL_CLIP_DISTANCE0);
+		//GL11.glEnable(GL30.GL_CLIP_DISTANCE1);
+		
+		//GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
 		
 	}
-
 	
 }
