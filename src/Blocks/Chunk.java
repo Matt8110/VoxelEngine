@@ -1,13 +1,12 @@
 package Blocks;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.lwjgl.util.vector.Vector2f;
 
 import Core.VAO;
+import VoxelEngine.Main;
 
 public class Chunk implements Cloneable{
 
@@ -22,6 +21,7 @@ public class Chunk implements Cloneable{
 	public boolean beingRebuilt = false;
 	public boolean needsRegenerated = false;
 	public boolean needsCleaned = false;
+	public boolean wasRebuilt = false;
 	
 	public float[] vertices;
 	public float[] normals;
@@ -42,10 +42,11 @@ public class Chunk implements Cloneable{
 	
 	public void renderAndUpdate() {
 		
+		Main.renderCalls++;
+		
 		//If the chunk building thread is finished, send the data to the VAO
 		if (built) {
 			if (vao != null) {
-				//System.out.println(vertices.length);
 				vao.modifyVAO(vertices, normals, texCoords);
 			}else {
 				vao = new VAO(vertices, normals, texCoords);

@@ -9,8 +9,9 @@ public enum BlockType {
 		DIRT(2, 2, 2, 2, 2, false),
 		STONE(3, 3, 3, 3, 3, false),
 		PLANKS(4, 4, 4, 4, 4, false),
+		SEMIDARK_PLANKS(10, 10, 10, 10, 10, false),
 		DARK_PLANKS(9, 9, 9, 9, 9, false),
-		FURNACE(3, 3, 5, 3, 3, true),
+		//FURNACE(3, 3, 5, 3, 3, true),
 		COAL(6, 6, 6, 6, 6, false),
 		GOLD(7, 7, 7, 7, 7, false),
 		DIAMOND(8, 8, 8, 8, 8, false);

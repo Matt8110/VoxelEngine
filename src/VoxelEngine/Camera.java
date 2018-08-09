@@ -12,7 +12,7 @@ import Utils.Ray;
 
 public class Camera {
 
-	public static Vector3f position = new Vector3f(72, 80, 72);
+	public static Vector3f position = new Vector3f(72, 72, 500);
 	public static Vector3f rotation = new Vector3f(0, 0, 0);
 	public static float speed = 0.0050f;
 	public static float playerHeight = 1.75f;
@@ -68,7 +68,7 @@ public class Camera {
 		
 		addAndRemoveBlocks();
 		
-		Main.text.updateText(BlockType.getByInt(currentBlockToPlace).toString());
+		Main.text.updateText("Block: " + BlockType.getByInt(currentBlockToPlace).toString());
 		
 		lastX = position.x;
 		lastY = position.y;
@@ -236,7 +236,11 @@ public class Camera {
 			if (rayResult != null) {
 				ray.getBlock().isActive = false;
 				ChunkManager.renderChunks.get(ray.getChunk()).needsRebuilt = true;
-				ChunkManager.renderChunks.get(ray.getChunk()).changes.put((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z,"0 " + (int)ray.getBlockPosition().x + " " + (int)ray.getBlockPosition().y + " " + (int)ray.getBlockPosition().z + " ");
+				
+				if (ChunkManager.renderChunks.get(ray.getChunk()).changes.containsKey((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z))
+					ChunkManager.renderChunks.get(ray.getChunk()).changes.remove((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z);
+				else
+					ChunkManager.renderChunks.get(ray.getChunk()).changes.put((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z,"0 " + (int)ray.getBlockPosition().x + " " + (int)ray.getBlockPosition().y + " " + (int)ray.getBlockPosition().z + " ");
 				
 			}
 			

@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.Scanner;
 
 import org.lwjgl.opengl.Display;
@@ -20,7 +19,7 @@ import net.jlibnoise.generator.Perlin;
 public class ChunkManager {
 
 	
-	public static int viewDistance = 15;
+	public static int viewDistance = 15;//15
 	public static int viewDistanceDivide = viewDistance/2;
 	
 	public static List<Chunk> renderChunks = Collections.synchronizedList(new ArrayList<Chunk>());
@@ -55,8 +54,8 @@ public class ChunkManager {
 		blockTextures = Utils.loadTexture("blocks.png");
 		
 		
-		for (int i = 0; i < viewDistance; i++) {
-			for (int j = 0; j < viewDistance; j++) {
+		for (int i = (int)(Camera.position.x - viewDistance/2.0f * chunkWidth); i < viewDistance; i++) {
+			for (int j = (int)(Camera.position.z - viewDistance/2.0f * chunkWidth); j < viewDistance; j++) {
 				buildChunks.add(new Chunk(i, j));
 			}
 		}
@@ -78,32 +77,42 @@ public class ChunkManager {
 		for (int i = 0; i < waitingChunks.size(); i++) {
 			
 			renderChunks.add(waitingChunks.get(i));
+			
+			
+			if (waitingChunks.get(i).wasRebuilt) {
+				waitingChunks.get(i).wasRebuilt = false;
+				
+				int rChunk = getChunkListLocation(waitingChunks.get(i).position.x, waitingChunks.get(i).position.y, renderChunks);
+				
+				renderChunks.remove(rChunk);
+				
+			}
+			
 			waitingChunks.remove(i);
 			
-			
 		}
+		
 		
 		for (int i = 0; i < renderChunks.size(); i++) {
 			
 			try {
-			
+				
 				renderChunks.get(i).renderAndUpdate();
 				
 				if ((renderChunks.get(i).needsRebuilt || renderChunks.get(i).needsRegenerated) && !renderChunks.get(i).beingRebuilt) {
 					renderChunks.get(i).beingRebuilt = true;
 					buildChunks.add(renderChunks.get(i));
-					//renderChunks.remove(i);
 				}
-			
+				
 			}catch(Exception e) {
 				System.err.println("WARNING: Failed to render");
 			}
 			
-			if (renderChunks.get(i).needsCleaned) {
-				renderChunks.remove(i);
-			}
+			
 			
 		}
+		
+		
 		
 	}
 
@@ -245,8 +254,9 @@ public class ChunkManager {
 						buildChunk();
 						
 						if (chunk.needsRebuilt || chunk.needsRegenerated) {
-							renderChunks.get(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks)).needsCleaned = true;
+							//renderChunks.get(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks)).needsCleaned = true;
 							//renderChunks.remove(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks));
+							chunk.wasRebuilt = true;
 						}
 						
 						chunk.built = true;
@@ -282,7 +292,10 @@ public class ChunkManager {
 						
 						float height = (float) (p.getValue((chunk.position.x + x)/100.0f, (chunk.position.y + z)/100.0f, 0.1f)+1)*10;
 						
+						
 						for (int y = 0; y < chunkHeight; y++) {
+							//float caves = (float) (p.getValue((chunk.position.x + x)/20.0f, (chunk.position.y + z)/20.0f, (y)/5.0f-100) + 0.5f);
+							
 							
 							if (!chunk.needsRegenerated)
 								chunk.blocks[x][y][z] = new Block();
@@ -314,6 +327,10 @@ public class ChunkManager {
 									chunk.blocks[x][y][z].isActive = true;
 								}
 	
+								
+								//if (caves > 1) {
+								//	chunk.blocks[x][y][z].isActive = false;
+								//}
 							
 						}
 					}

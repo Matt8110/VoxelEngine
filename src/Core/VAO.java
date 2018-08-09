@@ -92,7 +92,7 @@ public class VAO {
 	private void modifyVBO(float[] data, int id) {
 		
 		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, VBOs.get(id));
-		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, Utils.asFloatBuffer(data), GL15.GL_DYNAMIC_DRAW);
+		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, Utils.asFloatBuffer(data), GL15.GL_STATIC_DRAW);
 		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
 		
 	}
@@ -103,7 +103,7 @@ public class VAO {
 		VBOs.add(vboID);
 		
 		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboID);
-		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, Utils.asFloatBuffer(data), GL15.GL_DYNAMIC_DRAW);
+		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, Utils.asFloatBuffer(data), GL15.GL_STATIC_DRAW);
 		GL20.glVertexAttribPointer(id, size, GL11.GL_FLOAT, false, 0, 0);
 		
 		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);

@@ -1,10 +1,7 @@
 package Utils;
 
-import org.lwjgl.util.vector.Vector2f;
 import org.lwjgl.util.vector.Vector3f;
-
 import Blocks.Block;
-import Blocks.Chunk;
 import Blocks.ChunkManager;
 
 public class Ray {
@@ -45,7 +42,7 @@ public class Ray {
 		
 		direction.normalise();
 		
-		for (float i = 0; i < maxDistance; i += 0.05f) {
+		for (float i = 0; i < maxDistance; i += 0.5f) {
 			
 			dirX = direction.x * i;
 			dirY = direction.y * i;
@@ -93,7 +90,7 @@ public class Ray {
 		
 		direction.normalise();
 		
-		for (float i = 0; i < maxDistance; i += 0.05f) {
+		for (float i = 0; i < maxDistance; i += 0.0005f) {
 			
 			dirX = direction.x * i;
 			dirY = direction.y * i;

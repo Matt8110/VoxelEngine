@@ -3,8 +3,6 @@ package Gui;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import Core.VAO;
 
@@ -15,7 +13,6 @@ public class Text {
 	private String text;
 	private Font font;
 	private float cursorPos;
-	private int size;
 	private float scale;
 	
 	public float finalWidth = 0.0f;
@@ -24,7 +21,7 @@ public class Text {
 	
 	public Text(Font font, String text, float x, float y, float scale) {
 		
-		size = text.length()*6;
+		//size = text.length()*6;
 		
 		setPosition(x, y);
 		setText(text);
@@ -42,7 +39,6 @@ public class Text {
 			float width = font.characters.get((int)text.charAt(i)).origWidth*scale;
 			float height = font.characters.get((int)text.charAt(i)).origHeight*scale;
 			float advance = (font.characters.get((int)text.charAt(i)).advance-padding)*scale;
-			float xOff = font.characters.get((int)text.charAt(i)).xOff*scale;
 			float yOff = font.characters.get((int)text.charAt(i)).yOff*scale;
 			float texX = font.characters.get((int)text.charAt(i)).texCoordX;
 			float texY = font.characters.get((int)text.charAt(i)).texCoordY;
@@ -114,7 +110,6 @@ public class Text {
 			float width = font.characters.get((int)text.charAt(i)).origWidth*scale;
 			float height = font.characters.get((int)text.charAt(i)).origHeight*scale;
 			float advance = (font.characters.get((int)text.charAt(i)).advance-padding)*scale;
-			float xOff = font.characters.get((int)text.charAt(i)).xOff*scale;
 			float yOff = font.characters.get((int)text.charAt(i)).yOff*scale;
 			float texX = font.characters.get((int)text.charAt(i)).texCoordX;
 			float texY = font.characters.get((int)text.charAt(i)).texCoordY;

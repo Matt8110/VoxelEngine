@@ -5,8 +5,6 @@ import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Scanner;
 
-import org.newdawn.slick.opengl.Texture;
-
 import Utils.Utils;
 
 public class Font {
