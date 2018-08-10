@@ -54,8 +54,10 @@ public class ChunkManager {
 		blockTextures = Utils.loadTexture("blocks.png");
 		
 		
-		for (int i = (int)(Camera.position.x - viewDistance/2.0f * chunkWidth); i < viewDistance; i++) {
-			for (int j = (int)(Camera.position.z - viewDistance/2.0f * chunkWidth); j < viewDistance; j++) {
+//		for (int i = (int)((int)Camera.position.x/chunkWidth - viewDistance/2); i < viewDistance; i++) {
+//			for (int j = (int)((int)Camera.position.z/chunkWidth - viewDistance/2); j < viewDistance; j++) {
+				for (int i = 0; i < viewDistance; i++) {
+					for (int j = 0; j < viewDistance; j++) {
 				buildChunks.add(new Chunk(i, j));
 			}
 		}
@@ -306,15 +308,15 @@ public class ChunkManager {
 								
 								if (y < height+45) {
 									
-									if (Utils.ran.nextInt(100) == 0) {
+									/*if (Utils.ran.nextInt(100) == 0) {
 										chunk.blocks[x][y][z].blockType = BlockType.COAL;
 									}else if (Utils.ran.nextInt(2000) == 0) {
 										chunk.blocks[x][y][z].blockType = BlockType.GOLD;
 									}else if (Utils.ran.nextInt(4000) == 0) {
 										chunk.blocks[x][y][z].blockType = BlockType.DIAMOND;
-									}else {
+									}else {*/
 										chunk.blocks[x][y][z].blockType = BlockType.STONE;
-									}
+									//}
 									
 									
 									chunk.blocks[x][y][z].isActive = true;
@@ -425,7 +427,7 @@ public class ChunkManager {
 						//Bottom
 						
 						if ((int)y != 0) {
-							if (!chunk.blocks[(int) x][(int) y-1][(int) z].isActive) {
+							if (!chunk.blocks[(int) x][(int) y-1][(int) z].isActive || (chunk.blocks[(int) x][(int) y-1][(int) z].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
 						
 								
 								
@@ -489,8 +491,8 @@ public class ChunkManager {
 						//Top
 						
 						if ((int)y != chunkHeight-1) {
-							if (!chunk.blocks[(int) x][(int) y+1][(int) z].isActive) {
-						
+							if (!chunk.blocks[(int) x][(int) y+1][(int) z].isActive || (chunk.blocks[(int) x][(int) y+1][(int) z].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
+								
 						texCoordY = (float)((int)(blockType.textureTop/32.0f));
 						texCoordX = (blockType.textureTop - texCoordY*32.0f)*textureIncrement;
 						texCoordY *= textureIncrement;
@@ -552,7 +554,7 @@ public class ChunkManager {
 						texCoordY *= textureIncrement;
 						
 						if ((int)z != 0) {
-							if (!chunk.blocks[(int) x][(int) y][(int) z-1].isActive) {
+							if (!chunk.blocks[(int) x][(int) y][(int) z-1].isActive || (chunk.blocks[(int) x][(int) y][(int) z-1].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
 						
 						
 						
@@ -660,7 +662,7 @@ public class ChunkManager {
 						texCoordY *= textureIncrement;
 						
 						if ((int)z != chunkWidth-1) {
-							if (!chunk.blocks[(int) x][(int) y][(int) z+1].isActive) {
+							if (!chunk.blocks[(int) x][(int) y][(int) z+1].isActive || (chunk.blocks[(int) x][(int) y][(int) z+1].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
 						
 						tempTexCoords.add(texCoordX+textureIncrement);
 						tempTexCoords.add(texCoordY+textureIncrement);
@@ -769,7 +771,7 @@ public class ChunkManager {
 						texCoordY *= textureIncrement;
 						
 						if ((int)x != 0) {
-							if (!chunk.blocks[(int) x-1][(int) y][(int) z].isActive) {
+							if (!chunk.blocks[(int) x-1][(int) y][(int) z].isActive || (chunk.blocks[(int) x-1][(int) y][(int) z].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
 						
 						tempTexCoords.add(texCoordX+textureIncrement);
 						tempTexCoords.add(texCoordY+textureIncrement);
@@ -878,7 +880,7 @@ public class ChunkManager {
 						texCoordY *= textureIncrement;*/
 						
 						if ((int)x != chunkWidth-1) {
-							if (!chunk.blocks[(int) x+1][(int) y][(int) z].isActive) {
+							if (!chunk.blocks[(int) x+1][(int) y][(int) z].isActive || (chunk.blocks[(int) x+1][(int) y][(int) z].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
 						
 						tempTexCoords.add(texCoordX);
 						tempTexCoords.add(texCoordY+textureIncrement);

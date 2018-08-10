@@ -6,6 +6,8 @@ import java.util.Map;
 import org.lwjgl.util.vector.Vector2f;
 
 import Core.VAO;
+import Utils.Culling;
+import VoxelEngine.Camera;
 import VoxelEngine.Main;
 
 public class Chunk implements Cloneable{
@@ -27,6 +29,8 @@ public class Chunk implements Cloneable{
 	public float[] normals;
 	public float[] texCoords;
 	
+	public float averageBlockHeight = 0;
+	
 	private VAO vao;
 	
 	public Chunk(float x, float z) {
@@ -41,8 +45,6 @@ public class Chunk implements Cloneable{
 	}
 	
 	public void renderAndUpdate() {
-		
-		Main.renderCalls++;
 		
 		//If the chunk building thread is finished, send the data to the VAO
 		if (built) {
@@ -60,7 +62,16 @@ public class Chunk implements Cloneable{
 		}
 		
 		if (vao != null) {
-			vao.render();
+			
+			
+			if (Culling.checkVisible(Camera.MVP, position.x+8, 64, position.y+8, 16) ||
+				Culling.checkVisible(Camera.MVP, position.x+8, 128, position.y+8, 16) ||
+				Culling.checkVisible(Camera.MVP, position.x+8, 0, position.y+8, 16)) {
+				
+				vao.render();
+				Main.renderCalls++;
+				
+			}
 		}
 		
 	}

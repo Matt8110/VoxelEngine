@@ -90,7 +90,7 @@ public class Ray {
 		
 		direction.normalise();
 		
-		for (float i = 0; i < maxDistance; i += 0.0005f) {
+		for (float i = 0; i < maxDistance; i += 0.01f) {
 			
 			dirX = direction.x * i;
 			dirY = direction.y * i;

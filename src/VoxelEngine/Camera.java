@@ -3,6 +3,7 @@ package VoxelEngine;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
+import org.lwjgl.util.vector.Matrix4f;
 import org.lwjgl.util.vector.Vector3f;
 
 import Blocks.BlockType;
@@ -12,15 +13,20 @@ import Utils.Ray;
 
 public class Camera {
 
-	public static Vector3f position = new Vector3f(72, 72, 500);
+	public static Vector3f position = new Vector3f(0, 120, 0);
 	public static Vector3f rotation = new Vector3f(0, 0, 0);
-	public static float speed = 0.0050f;
+	public static float speed = 0.0040f;
+	public static float staticSpeed = 0.0040f;
+	public static float walkSpeed = 0.0040f;
+	public static float runSpeed = 0.0060f;
 	public static float playerHeight = 1.75f;
 	public static float vSpeed = 0;
 	public static float gravity = 0.000050f;
 	public static float maxFallSpeed = -0.1f;
 	public static boolean canJump = true;
 	public static boolean letGoOfSpace = true;
+	public static float rotSum = 0;
+	public static float slideSpeed = 0.0000005f;
 	
 	private static int lastMouseX = 0, lastMouseY = 0;
 	
@@ -53,6 +59,8 @@ public class Camera {
 	private static float boundX1, boundX2, boundY2, boundZ1, boundZ2;
 	private static float boundBoxSize = 0.60f / 2.0f;
 	
+	public static Matrix4f MVP = new Matrix4f();
+	
 	public static void initCamera() {
 		
 		rotation.x = 0;
@@ -65,6 +73,8 @@ public class Camera {
 		mouseLook();
 		movement(deltaTime);
 		handlePlayerCollisions(deltaTime);
+		
+		MVP = Matrix4f.mul(Utils.Utils.getProjectionMatrix(Main.fov, Main.near, Main.far), Utils.Utils.getCullingViewMatrix(), null);
 		
 		addAndRemoveBlocks();
 		
@@ -147,19 +157,36 @@ public class Camera {
 			letGoOfSpace = true;
 		}
 		
-		if (ray.castHeightRay(position.x, position.y, position.z, 90, 0, 10.0f) > 1 + playerHeight) {
+		float rayValue = ray.castHeightRay(position.x, position.y, position.z, 90, 0, 10.0f);
+		
+		if (rayValue > 1 + playerHeight) {
+			
+			if (ray.getBlock().blockType == BlockType.ICE)
+				slideSpeed = 0.000003f;
+			else
+				slideSpeed = 0.00005f;
+			
 			position.y += vSpeed * deltaTime;
 			
 			if (vSpeed > maxFallSpeed)
 				vSpeed -= gravity * deltaTime;
 			
 			
-		}else {
+		}
+		else if (rayValue != -1){
+			
+			if (ray.getBlock().blockType == BlockType.ICE)
+				slideSpeed = 0.000003f;
+			else
+				slideSpeed = 0.00005f;
+			
 			canJump = true;
 			vSpeed = 0;
 		}
 		
-		if (ray.castHeightRay(position.x, position.y, position.z, 90, 0, 10.0f) < 1 + playerHeight - 0.02f) {
+		float rayVal = ray.castHeightRay(position.x, position.y, position.z, 90, 0, 10.0f);
+		
+		if (rayVal < 1 + playerHeight - 0.02f && rayVal != -1) {
 			
 			if (boundY2 + 0.1f < 128) {
 				if (checkCollisionAt(position.x, boundY2 + 0.1f, position.z)) {
@@ -237,9 +264,9 @@ public class Camera {
 				ray.getBlock().isActive = false;
 				ChunkManager.renderChunks.get(ray.getChunk()).needsRebuilt = true;
 				
-				if (ChunkManager.renderChunks.get(ray.getChunk()).changes.containsKey((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z))
-					ChunkManager.renderChunks.get(ray.getChunk()).changes.remove((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z);
-				else
+				//if (ChunkManager.renderChunks.get(ray.getChunk()).changes.containsKey((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z))
+					//ChunkManager.renderChunks.get(ray.getChunk()).changes.remove((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z);
+				//else
 					ChunkManager.renderChunks.get(ray.getChunk()).changes.put((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z,"0 " + (int)ray.getBlockPosition().x + " " + (int)ray.getBlockPosition().y + " " + (int)ray.getBlockPosition().z + " ");
 				
 			}
@@ -313,10 +340,14 @@ public class Camera {
 			if (checkYIf > checkXIf && checkYIf > checkZIf && checkY+1 < 120) {
 				
 				int blockID = currentBlockToPlace;
-				ChunkManager.renderChunks.get(chunk).changes.put((int) (checkX) + "" + (int) (checkY+1) + "" + (int) (checkZ),"1 " + blockID + " " + (int) (checkX) + " " + (int) (checkY+1) + " " + (int) checkZ + " ");
+				Chunk tempChunk = ChunkManager.renderChunks.get(chunk);
+				tempChunk.changes.put((int) (checkX) + "" + (int) (checkY+1) + "" + (int) (checkZ),"1 " + blockID + " " + (int) (checkX) + " " + (int) (checkY+1) + " " + (int) checkZ + " ");
 				
-				ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY+1)][(int) checkZ].isActive = true;
-				ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY+1)][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
+				if (checkX+tempChunk.position.x == (int)position.x && checkY+1 == (int)position.y - 1 && checkZ+tempChunk.position.y == (int)position.z) {}
+				else {
+					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY+1)][(int) checkZ].isActive = true;
+					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY+1)][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
+				}
 				
 			}
 			// Z+
@@ -404,24 +435,78 @@ public class Camera {
 	
 	public static void movement(float deltaTime) {
 		
-		if (Keyboard.isKeyDown(Keyboard.KEY_W)) {
-			position.x += Math.cos(Math.toRadians(rotation.y-90))*speed*deltaTime;
-			position.z += Math.sin(Math.toRadians(rotation.y-90))*speed*deltaTime;
+		if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT))
+			staticSpeed = runSpeed;
+		else
+			staticSpeed = walkSpeed;
+		
+		
+		if (Keyboard.isKeyDown(Keyboard.KEY_W) && Keyboard.isKeyDown(Keyboard.KEY_A)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-180+45;
+		}else if (Keyboard.isKeyDown(Keyboard.KEY_W) && Keyboard.isKeyDown(Keyboard.KEY_D)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-45;
+		}else if (Keyboard.isKeyDown(Keyboard.KEY_S) && Keyboard.isKeyDown(Keyboard.KEY_A)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-270+45;
+		}else if (Keyboard.isKeyDown(Keyboard.KEY_S) && Keyboard.isKeyDown(Keyboard.KEY_D)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-270-45;
 		}
 		
-		if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
-			position.x -= Math.cos(Math.toRadians(rotation.y-90))*speed*deltaTime;
-			position.z -= Math.sin(Math.toRadians(rotation.y-90))*speed*deltaTime;
+		else if (Keyboard.isKeyDown(Keyboard.KEY_W)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-90;
 		}
 		
-		if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
-			position.x += Math.cos(Math.toRadians(rotation.y-180))*speed*deltaTime;
-			position.z += Math.sin(Math.toRadians(rotation.y-180))*speed*deltaTime;
+		else if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-270;
 		}
-		if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
-			position.x += Math.cos(Math.toRadians(rotation.y))*speed*deltaTime;
-			position.z += Math.sin(Math.toRadians(rotation.y))*speed*deltaTime;
+		
+		else if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y-180;
 		}
+		else if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
+			if (speed < staticSpeed) {
+				speed += slideSpeed * deltaTime;
+			}else
+				speed = staticSpeed;
+			rotSum = rotation.y;
+		}
+		else {
+			if (speed > 0)
+				speed -= slideSpeed * deltaTime;
+			else
+				speed = 0;
+		}
+		
+			position.x += Math.cos(Math.toRadians(rotSum))*speed*deltaTime;
+			position.z += Math.sin(Math.toRadians(rotSum))*speed*deltaTime;
+		
 		
 		lastXInc = Math.abs(position.x - lastX);
 		lastZInc = Math.abs(position.z - lastZ);

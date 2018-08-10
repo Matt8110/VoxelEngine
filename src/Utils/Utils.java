@@ -7,6 +7,7 @@ import java.nio.FloatBuffer;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.Display;
@@ -39,6 +40,40 @@ public class Utils {
 		
 	}
 	
+	public static void loadPlayerData() {
+		
+		try {
+			
+			Scanner scan = new Scanner(new File("playerdata.dat"));
+			
+			//Camera.position.x = scan.nextFloat()-3;
+			//Camera.position.y = scan.nextFloat();
+			//Camera.position.z = scan.nextFloat();
+			
+			scan.close();
+			
+		}catch(Exception e) {
+			System.err.println("ERROR: Player data missing or corrupt");
+		}
+		
+	}
+	
+	public static void savePlayerDataToFile() {
+		
+		try {
+			
+			Formatter format = new Formatter(new File("playerdata.dat"));
+			
+			format.format("%f %f %f", Camera.position.x, Camera.position.y, Camera.position.z);
+			
+			format.close();
+			
+		}catch(Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
 	public static void saveChangesToFile(Chunk chunk) {
 		
 		try {
@@ -65,10 +100,10 @@ public class Utils {
 		
 		mat = new Matrix4f();
 		
-		float aspectRatio = (float) Display.getWidth() / (float) Display.getHeight();
-        float y_scale = (float) ((1f / Math.tan(Math.toRadians(fov/2f))));
-        float x_scale = y_scale/aspectRatio;
-        float frustum_length = FAR_PLANE - NEAR_PLANE;
+		float aspectRatio = (float) Display.getWidth()/(float) Display.getHeight();
+		float y_scale = (float) ((1f / Math.tan(Math.toRadians(fov / 2.0f))) * aspectRatio);
+		float x_scale = y_scale / aspectRatio;
+		float frustum_length = FAR_PLANE - NEAR_PLANE;
         
         
         mat.m00 = x_scale;
@@ -99,6 +134,20 @@ public class Utils {
 	}
 	
 	public static Matrix4f getViewMatrix() {
+		
+		mat = new Matrix4f();
+		mat.setIdentity();
+		
+		mat.rotate((float)Math.toRadians(Camera.rotation.x), new Vector3f(1, 0, 0));
+		mat.rotate((float)Math.toRadians(Camera.rotation.y), new Vector3f(0, 1, 0));
+		mat.rotate((float)Math.toRadians(Camera.rotation.z), new Vector3f(0, 0, 1));
+		mat.translate(new Vector3f(-Camera.position.x, -Camera.position.y, -Camera.position.z));
+		
+		return mat;
+		
+	}
+	
+	public static Matrix4f getCullingViewMatrix() {
 		
 		mat = new Matrix4f();
 		mat.setIdentity();

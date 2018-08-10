@@ -13,6 +13,9 @@ void main()
 {
 	vec4 tex = texture(texSample, texCoordPass);
 
+	if (tex.a < 0.5)
+		discard;
+	
 	colour = tex;
 	colour = mix(vec4(skyColour, 1.0), colour, visibility);
 }

@@ -20,7 +20,9 @@ public class Main {
 	public static MainShader shader;
 	public static Shader shader2D, textShader;
 	
-	public static int fov = 70;
+	public static int fov = 90;
+	public static float near = 0.01f;
+	public static float far = 1000.0f;
 	public static float mouseSensitivity = 0.075f;
 	
 	public static long lastTime = 0, fpsLastTime = 0, fps = 0;
@@ -31,8 +33,7 @@ public class Main {
 	public static boolean fullscreen = true;
 	
 	public static Font font;
-	public static Text text;
-	public static Text memUse;
+	public static Text text, memUse, renChunks;
 	
 	public static int renderCalls = 0;
 	
@@ -59,10 +60,13 @@ public class Main {
 		
 		Camera.initCamera();
 		
+		Utils.loadPlayerData();
+		
 		ChunkManager.initChunks();
 		
 		text = new Text(font, "                       ", 16, 16, 0.5f);
 		memUse = new Text(font, "                       ", 16, 64, 0.5f);
+		renChunks = new Text(font, "o                      ", 16, 96, 0.5f);
 		
 		lastTime = System.currentTimeMillis();
 		fpsLastTime = System.currentTimeMillis();
@@ -114,6 +118,8 @@ public class Main {
 				
 				ChunkManager.renderChunks();
 				
+				renChunks.updateText("Rendering " + renderCalls + "/" + ChunkManager.renderChunks.size() + " Chunks");
+				
 				Camera.updateCamera(deltaTime);
 				
 				//Drawing 2D stuff
@@ -132,6 +138,7 @@ public class Main {
 				textShader.useShader();
 				text.render();
 				memUse.render();
+				renChunks.render();
 				
 				//memUse.updateText(String.valueOf(renderCalls));
 				renderCalls = 0;
@@ -148,7 +155,10 @@ public class Main {
 		
 		for (Chunk chunk : ChunkManager.renderChunks) {
 			Utils.saveChangesToFile(chunk);
+			
 		}
+		
+		Utils.savePlayerDataToFile();
 		
 		}
 	
@@ -162,10 +172,13 @@ public class Main {
 			Display.setDisplayMode(Display.getDesktopDisplayMode());
 			
 		}else {
-			Display.setDisplayMode(new DisplayMode(1024, 768));
+			Display.setDisplayMode(new DisplayMode(1280, 1024));
 		}
 		
 		GL11.glViewport(0, 0, Display.getWidth(), Display.getHeight());
+		
+		shader.useShader();
+		shader.resetProjectionMatrix();
 		
 		Display.setFullscreen(fullscreen);
 		

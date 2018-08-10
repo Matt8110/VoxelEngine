@@ -24,6 +24,10 @@ public class MainShader extends Shader{
 		
 	}
 	
+	public void resetProjectionMatrix() {
+		super.setMatrix4(projectionMatrixPosition, Utils.getProjectionMatrix(Main.fov, Main.near, Main.far));
+	}
+	
 	public void useShader() {
 		
 		GL20.glUseProgram(programID);
