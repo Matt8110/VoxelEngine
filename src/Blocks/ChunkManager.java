@@ -3,8 +3,11 @@ package Blocks;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
@@ -22,9 +25,9 @@ public class ChunkManager {
 	public static int viewDistance = 15;//15
 	public static int viewDistanceDivide = viewDistance/2;
 	
-	public static List<Chunk> renderChunks = Collections.synchronizedList(new ArrayList<Chunk>());
-	public static List<Chunk> waitingChunks = Collections.synchronizedList(new ArrayList<Chunk>());
-	public static List<Chunk> buildChunks = Collections.synchronizedList(new ArrayList<Chunk>());
+	public static Map<String, Chunk> renderChunks = Collections.synchronizedMap(new ConcurrentHashMap <String, Chunk>());
+	public static Map<String, Chunk> waitingChunks = Collections.synchronizedMap(new ConcurrentHashMap <String, Chunk>());
+	public static Map<String, Chunk> buildChunks = Collections.synchronizedMap(new ConcurrentHashMap <String, Chunk>());
 	public static int blockTextures;
 	
 	public static int chunkWidth = 16;
@@ -34,7 +37,9 @@ public class ChunkManager {
 	public static int lastPlayerChunkZ = (int)Math.floor(Camera.position.z / chunkWidth);
 	public static int playerChunkX = lastPlayerChunkX;
 	public static int playerChunkZ = lastPlayerChunkZ;
-	public static int currentChunk;
+	public static String currentChunkLoc;
+	public static String otherChunkLoc;
+	public static Chunk currentChunk, otherChunk;
 	
 	public static Texture2D background = new Texture2D("black.png", new Vector2f(0, 0), new Vector2f(Display.getWidth(), Display.getHeight()));
 	public static Texture2D generating = new Texture2D("generating.png", new Vector2f(Display.getWidth()/2.0f-64, Display.getHeight()/2.0f-64), new Vector2f(Display.getWidth()/2.0f+64, Display.getHeight()/2.0f+64));
@@ -53,12 +58,9 @@ public class ChunkManager {
 		
 		blockTextures = Utils.loadTexture("blocks.png");
 		
-		
-//		for (int i = (int)((int)Camera.position.x/chunkWidth - viewDistance/2); i < viewDistance; i++) {
-//			for (int j = (int)((int)Camera.position.z/chunkWidth - viewDistance/2); j < viewDistance; j++) {
 				for (int i = 0; i < viewDistance; i++) {
 					for (int j = 0; j < viewDistance; j++) {
-				buildChunks.add(new Chunk(i, j));
+				Utils.putChunkIntoMap(new Chunk(i, j), buildChunks);
 			}
 		}
 		
@@ -76,156 +78,164 @@ public class ChunkManager {
 		
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, blockTextures);
 		
-		for (int i = 0; i < waitingChunks.size(); i++) {
+		for (Chunk chunk : renderChunks.values()) {
 			
-			renderChunks.add(waitingChunks.get(i));
+			chunk.renderAndUpdate();
 			
 			
-			if (waitingChunks.get(i).wasRebuilt) {
-				waitingChunks.get(i).wasRebuilt = false;
-				
-				int rChunk = getChunkListLocation(waitingChunks.get(i).position.x, waitingChunks.get(i).position.y, renderChunks);
-				
-				renderChunks.remove(rChunk);
-				
+			if (chunk.needsRebuilt || chunk.needsRegenerated) {
+				chunk.beingRebuilt = true;
+				Utils.putChunkIntoMap(chunk, buildChunks);
 			}
-			
-			waitingChunks.remove(i);
 			
 		}
 		
-		
-		for (int i = 0; i < renderChunks.size(); i++) {
-			
-			try {
-				
-				renderChunks.get(i).renderAndUpdate();
-				
-				if ((renderChunks.get(i).needsRebuilt || renderChunks.get(i).needsRegenerated) && !renderChunks.get(i).beingRebuilt) {
-					renderChunks.get(i).beingRebuilt = true;
-					buildChunks.add(renderChunks.get(i));
-				}
-				
-			}catch(Exception e) {
-				System.err.println("WARNING: Failed to render");
-			}
-			
-			
-			
+		for (Chunk chunk : renderChunks.values()) {
+			chunk.renderAndUpdateTransparent();
 		}
-		
 		
 		
 	}
 
-	public static int getChunkListLocation(float x, float z, List<Chunk> list){
+	public static String getChunkListLocation(float x, float z, Map<String, Chunk> list){
 		
-		for (int i = 0; i < list.size(); i++) {
-			
-			if (list.size() >= i) 
-				if ((int)list.get(i).position.x == (int)x && (int)list.get(i).position.y == (int)z) {
-					return i;
-				}
-			
-			
-		}
+		if (list.containsKey((int)x + "" + (int)z))
+				return (int)x + "" + (int)z;
 		
-		return -1;
+		return null;
 		
 	}
 
 	public static void updateChunks() {
 		
-		playerChunkX = (int) Math.floor(Camera.position.x / chunkWidth);
-		playerChunkZ = (int) Math.floor(Camera.position.z / chunkWidth);
+		playerChunkX = (int) (Camera.position.x / chunkWidth);
+		playerChunkZ = (int) (Camera.position.z / chunkWidth);
 		
-		try {
+		//TODO: May cause errors if the last player chunk position is reset after one runs
 		
-			if (playerChunkX > lastPlayerChunkX) {
-				for (int i = 0; i < viewDistance; i++) {
-					
-					currentChunk = getChunkListLocation((lastPlayerChunkX - (viewDistanceDivide))*chunkWidth, ((lastPlayerChunkZ - viewDistanceDivide) + i)*chunkWidth, renderChunks);
-					
-					if (currentChunk != -1) {
-						
-						Utils.saveChangesToFile(renderChunks.get(currentChunk));
-						
-						renderChunks.get(currentChunk).position.x = (playerChunkX + viewDistanceDivide) * chunkWidth;
-						renderChunks.get(currentChunk).position.y = ((playerChunkZ - viewDistanceDivide) + i) * chunkWidth;
-						renderChunks.get(currentChunk).needsRegenerated = true;
-						renderChunks.get(currentChunk).changes.clear();
-					}
-				}
-			}
+		if (playerChunkX > lastPlayerChunkX) {
 			
-			if (playerChunkX < lastPlayerChunkX) {
-				for (int i = 0; i < viewDistance; i++) {
-					
-					currentChunk = getChunkListLocation((lastPlayerChunkX + (viewDistanceDivide))*chunkWidth, ((lastPlayerChunkZ - viewDistanceDivide) + i)*chunkWidth, renderChunks);
-					
-					if (currentChunk != -1) {
-						
-						Utils.saveChangesToFile(renderChunks.get(currentChunk));
-						
-						renderChunks.get(currentChunk).position.x = (playerChunkX - viewDistanceDivide) * chunkWidth;
-						renderChunks.get(currentChunk).position.y = ((playerChunkZ - viewDistanceDivide) + i) * chunkWidth;
-						renderChunks.get(currentChunk).needsRegenerated = true;
-						renderChunks.get(currentChunk).changes.clear();
-						
-					}
-				}
-			}
+			for (int i = 0; i < viewDistance; i++) {
 			
-			if (playerChunkZ > lastPlayerChunkZ) {
-				for (int i = 0; i < viewDistance; i++) {
-					
-					currentChunk = getChunkListLocation(((lastPlayerChunkX - viewDistanceDivide) + i)*chunkWidth,  (lastPlayerChunkZ - (viewDistanceDivide))*chunkWidth, renderChunks );
-					
-					if (currentChunk != -1) {
-						
-						Utils.saveChangesToFile(renderChunks.get(currentChunk));
-						
-						renderChunks.get(currentChunk).position.x = ((playerChunkX - viewDistanceDivide) + i) * chunkWidth;
-						renderChunks.get(currentChunk).position.y = (playerChunkZ + viewDistanceDivide) * chunkWidth;
-						renderChunks.get(currentChunk).needsRegenerated = true;
-						renderChunks.get(currentChunk).changes.clear();
-						
-					}
-				}
-			}
-			
-			if (playerChunkZ < lastPlayerChunkZ) {
+				int oldPosX = (lastPlayerChunkX - viewDistanceDivide) * chunkWidth;
+				int oldPosZ = (lastPlayerChunkZ - viewDistanceDivide + i) * chunkWidth;
+				int newPosX = (playerChunkX + viewDistanceDivide) * chunkWidth;
+				int newPosZ = (playerChunkZ - viewDistanceDivide + i) * chunkWidth;
 				
-				for (int i = 0; i < viewDistance; i++) {
-					
-					currentChunk = getChunkListLocation(((lastPlayerChunkX - viewDistanceDivide) + i)*chunkWidth,  (lastPlayerChunkZ + (viewDistanceDivide))*chunkWidth, renderChunks );
-					
-					if (currentChunk != -1) {
-						
-						Utils.saveChangesToFile(renderChunks.get(currentChunk));
-						
-						renderChunks.get(currentChunk).position.x = ((playerChunkX - viewDistanceDivide) + i) * chunkWidth;
-						renderChunks.get(currentChunk).position.y = (playerChunkZ - viewDistanceDivide) * chunkWidth;
-						renderChunks.get(currentChunk).needsRegenerated = true;
-						renderChunks.get(currentChunk).changes.clear();
-						
-					}
-				}
+				//Rebuild chunk next to new chunk to get rid of culling errors
+				int otherChunkX = (playerChunkX + viewDistanceDivide - 1) * chunkWidth;
+				int otherChunkZ = (playerChunkZ - viewDistanceDivide + i) * chunkWidth;
+				otherChunk = Utils.getChunkAt(otherChunkX, otherChunkZ);
+				otherChunk.needsRebuilt = true;
+				
+				currentChunk = Utils.getChunkAt(oldPosX, oldPosZ);
+				
+				Utils.removeChunkFromMap(currentChunk, renderChunks);
+				
+				currentChunk.position.x = newPosX;
+				currentChunk.position.y = newPosZ;
+				currentChunk.needsRegenerated = true;
+				
+				Utils.putChunkIntoMap(currentChunk, renderChunks);
+			
 			}
-		
-		}catch(Exception e) {
-			e.printStackTrace();
+			lastPlayerChunkX = playerChunkX;
+			
+		}else if (playerChunkX < lastPlayerChunkX) {
+			
+			for (int i = 0; i < viewDistance; i++) {
+			
+				int oldPosX = (lastPlayerChunkX + viewDistanceDivide) * chunkWidth;
+				int oldPosZ = (lastPlayerChunkZ - viewDistanceDivide + i) * chunkWidth;
+				int newPosX = (playerChunkX - viewDistanceDivide) * chunkWidth;
+				int newPosZ = (playerChunkZ - viewDistanceDivide + i) * chunkWidth;
+				
+				//Rebuild chunk next to new chunk to get rid of culling errors
+				int otherChunkX = (playerChunkX - viewDistanceDivide + 1) * chunkWidth;
+				int otherChunkZ = (playerChunkZ - viewDistanceDivide + i) * chunkWidth;
+				otherChunk = Utils.getChunkAt(otherChunkX, otherChunkZ);
+				otherChunk.needsRebuilt = true;
+				
+				currentChunk = Utils.getChunkAt(oldPosX, oldPosZ);
+				
+				Utils.removeChunkFromMap(currentChunk, renderChunks);
+				
+				currentChunk.position.x = newPosX;
+				currentChunk.position.y = newPosZ;
+				currentChunk.needsRegenerated = true;
+				
+				Utils.putChunkIntoMap(currentChunk, renderChunks);
+			
+			}
+			lastPlayerChunkX = playerChunkX;
+			
+		}else if (playerChunkZ > lastPlayerChunkZ) {
+			
+			for (int i = 0; i < viewDistance; i++) {
+			
+				int oldPosZ = (lastPlayerChunkZ - viewDistanceDivide) * chunkWidth;
+				int oldPosX = (lastPlayerChunkX - viewDistanceDivide + i) * chunkWidth;
+				int newPosZ = (playerChunkZ + viewDistanceDivide) * chunkWidth;
+				int newPosX = (playerChunkX - viewDistanceDivide + i) * chunkWidth;
+				
+				//Rebuild chunk next to new chunk to get rid of culling errors
+				int otherChunkZ = (playerChunkZ + viewDistanceDivide - 1) * chunkWidth;
+				int otherChunkX = (playerChunkX - viewDistanceDivide + i) * chunkWidth;
+				otherChunk = Utils.getChunkAt(otherChunkX, otherChunkZ);
+				otherChunk.needsRebuilt = true;
+				
+				currentChunk = Utils.getChunkAt(oldPosX, oldPosZ);
+				
+				Utils.removeChunkFromMap(currentChunk, renderChunks);
+				
+				currentChunk.position.x = newPosX;
+				currentChunk.position.y = newPosZ;
+				currentChunk.needsRegenerated = true;
+				
+				Utils.putChunkIntoMap(currentChunk, renderChunks);
+			
+			}
+			lastPlayerChunkZ = playerChunkZ;
+			
+		}else if (playerChunkZ < lastPlayerChunkZ) {
+			
+			for (int i = 0; i < viewDistance; i++) {
+			
+				int oldPosZ = (lastPlayerChunkZ + viewDistanceDivide) * chunkWidth;
+				int oldPosX = (lastPlayerChunkX - viewDistanceDivide + i) * chunkWidth;
+				int newPosZ = (playerChunkZ - viewDistanceDivide) * chunkWidth;
+				int newPosX = (playerChunkX - viewDistanceDivide + i) * chunkWidth;
+				
+				//Rebuild chunk next to new chunk to get rid of culling errors
+				int otherChunkZ = (playerChunkZ - viewDistanceDivide + 1) * chunkWidth;
+				int otherChunkX = (playerChunkX - viewDistanceDivide + i) * chunkWidth;
+				otherChunk = Utils.getChunkAt(otherChunkX, otherChunkZ);
+				otherChunk.needsRebuilt = true;
+				
+				currentChunk = Utils.getChunkAt(oldPosX, oldPosZ);
+				
+				Utils.removeChunkFromMap(currentChunk, renderChunks);
+				
+				currentChunk.position.x = newPosX;
+				currentChunk.position.y = newPosZ;
+				currentChunk.needsRegenerated = true;
+				
+				Utils.putChunkIntoMap(currentChunk, renderChunks);
+			
+			}
+			
+			
+			lastPlayerChunkZ = playerChunkZ;
 		}
 		
 		
-		lastPlayerChunkX = playerChunkX;
-		lastPlayerChunkZ = playerChunkZ;
 		
 	}
 	
 	static class ChunkThread implements Runnable{
 
 		private Chunk chunk;
+		private Chunk chunkCheckNegZ, chunkCheckPosZ, chunkCheckNegX, chunkCheckPosX;
 		
 		private List<Float> tempVertices = new ArrayList<Float>();
 		private List<Float> tempNormals = new ArrayList<Float>();
@@ -243,51 +253,57 @@ public class ChunkManager {
 			
 			while (Main.isRunning) {
 				
-				if (!buildChunks.isEmpty()) {
+					if (!buildChunks.isEmpty()) {
+						
+						for (Chunk chunkFor : buildChunks.values()) {
+							
+							chunk = chunkFor;
+							
+							if (!chunk.needsRebuilt && !chunk.filled) {
+								
+								fillChunk();
+							}
+								
+								
+							if (chunk.filled) {
+								
+								chunkCheckNegZ = Utils.getChunkAt(chunk.position.x, chunk.position.y - chunkWidth);
+								chunkCheckPosZ = Utils.getChunkAt(chunk.position.x, chunk.position.y + chunkWidth);
+								chunkCheckNegX = Utils.getChunkAt(chunk.position.x - chunkWidth, chunk.position.y);
+								chunkCheckPosX = Utils.getChunkAt(chunk.position.x + chunkWidth, chunk.position.y);
+								
+								buildChunk();
+								
+								chunk.needsRebuilt = false;
+								chunk.needsRegenerated = false;
+								chunk.beingRebuilt = false;
+								chunk.built = true;
+								chunk.transparentBuilt = true;
+								chunk.filled = false;
+								
+								Utils.putChunkIntoMap(chunk, renderChunks);
+								Utils.removeChunkFromMap(chunkFor, buildChunks);
+							}
+							if (!chunk.built)
+								chunk.filled = true;
+							
+						}
+						
+					}else {
+						try {
+							Thread.sleep(1);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
 				
-					for (int i = 0; i < buildChunks.size(); i++) {
-						
-						chunk = buildChunks.get(i).clone();
-						
-						if (!chunk.needsRebuilt) {
-							fillChunk();
-						}
-						
-						buildChunk();
-						
-						if (chunk.needsRebuilt || chunk.needsRegenerated) {
-							//renderChunks.get(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks)).needsCleaned = true;
-							//renderChunks.remove(getChunkListLocation(chunk.position.x, chunk.position.y, renderChunks));
-							chunk.wasRebuilt = true;
-						}
-						
-						chunk.built = true;
-						chunk.needsRebuilt = false;
-						chunk.needsRegenerated = false;
-						chunk.beingRebuilt = false;
-						
-						waitingChunks.add(chunk);
-						buildChunks.remove(i);
-						
-						chunk = null;
-					}
-					
-					
-					
-				}else {
-					try {
-						Thread.sleep(1);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
+				
 			}
 			
 		}
 		
 		public void fillChunk() {
-			
-			
 				
 				for (int z = 0; z < chunkWidth; z++) {
 					for (int x = 0; x < chunkWidth; x++) {
@@ -308,15 +324,7 @@ public class ChunkManager {
 								
 								if (y < height+45) {
 									
-									/*if (Utils.ran.nextInt(100) == 0) {
-										chunk.blocks[x][y][z].blockType = BlockType.COAL;
-									}else if (Utils.ran.nextInt(2000) == 0) {
-										chunk.blocks[x][y][z].blockType = BlockType.GOLD;
-									}else if (Utils.ran.nextInt(4000) == 0) {
-										chunk.blocks[x][y][z].blockType = BlockType.DIAMOND;
-									}else {*/
 										chunk.blocks[x][y][z].blockType = BlockType.STONE;
-									//}
 									
 									
 									chunk.blocks[x][y][z].isActive = true;
@@ -327,6 +335,11 @@ public class ChunkManager {
 								}else if (y > height+50 && y < height+51) {
 									chunk.blocks[x][y][z].blockType = BlockType.GRASS;
 									chunk.blocks[x][y][z].isActive = true;
+								}
+								
+								if (y < 60 && !chunk.blocks[x][y][z].isActive) {
+									chunk.blocks[x][y][z].isActive = true;
+									chunk.blocks[x][y][z].blockType = BlockType.WATER;
 								}
 	
 								
@@ -343,8 +356,6 @@ public class ChunkManager {
 					File file = new File("chunks/" + (int)chunk.position.x + "" + (int)chunk.position.y + ".chunk");
 					
 				if (file.exists()) {
-					
-					//System.out.println("Loaded chunk");
 					
 					Scanner scan = new Scanner(file);
 					
@@ -391,20 +402,17 @@ public class ChunkManager {
 		
 		public void buildChunk() {
 			
-			for (int z = 0; z < chunkWidth; z++) {
-				for (int x = 0; x < chunkWidth; x++) {
+			for (int z = 0; z < chunkWidth; z++) 
+				for (int x = 0; x < chunkWidth; x++) 
 					for (int y = 0; y < chunkHeight; y++) {
 						
-						if (chunk.blocks[x][y][z].isActive) {
-								
-								addBlock(x, y, z);
+						if (chunk.blocks[x][y][z].isActive && !chunk.blocks[x][y][z].blockType.transparent) {
 							
-						
+								addBlock(x, y, z);
+								
+								
+							
 						}
-						
-						
-					}	
-				}
 			}
 			
 			chunk.vertices = Utils.convertListToArray(tempVertices);
@@ -414,6 +422,27 @@ public class ChunkManager {
 			tempVertices.clear();
 			tempNormals.clear();
 			tempTexCoords.clear();
+			
+			for (int z = 0; z < chunkWidth; z++)
+				for (int x = 0; x < chunkWidth; x++)
+					for (int y = 0; y < chunkHeight; y++) {
+						
+						if (chunk.blocks[x][y][z].blockType.transparent && chunk.blocks[x][y][z].isActive) {
+							
+							addBlock(x, y, z);
+						
+						}
+						
+					}
+			
+			chunk.transparentVertices = Utils.convertListToArray(tempVertices);
+			chunk.transparentNormals = Utils.convertListToArray(tempVertices);
+			chunk.transparentTexCoords = Utils.convertListToArray(tempTexCoords);
+			
+			tempVertices.clear();
+			tempNormals.clear();
+			tempTexCoords.clear();
+			
 			
 		}
 		
@@ -426,6 +455,11 @@ public class ChunkManager {
 						
 						//Bottom
 						
+						//for (int i = 0; i < 18; i += 3) {
+						//	tempNormals.add(0.0f);
+						//	tempNormals.add(-1.0f);
+						//	tempNormals.add(0.0f);
+						//}
 						if ((int)y != 0) {
 							if (!chunk.blocks[(int) x][(int) y-1][(int) z].isActive || (chunk.blocks[(int) x][(int) y-1][(int) z].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
 						
@@ -458,10 +492,6 @@ public class ChunkManager {
 							tempVertices.add(y);
 							tempVertices.add(chunk.position.y + z);
 							
-							
-							
-							
-							
 							tempTexCoords.add(texCoordX+textureIncrement);
 							tempTexCoords.add(texCoordY+textureIncrement);
 							
@@ -492,6 +522,15 @@ public class ChunkManager {
 						
 						if ((int)y != chunkHeight-1) {
 							if (!chunk.blocks[(int) x][(int) y+1][(int) z].isActive || (chunk.blocks[(int) x][(int) y+1][(int) z].blockType.transparent) && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
+								
+						//for (int i = 0; i < 18; i += 3) {
+							
+						//	tempNormals.add(0.0f);
+						//	tempNormals.add(1.0f);
+						//	tempNormals.add(0.0f);
+							
+							
+						//}
 								
 						texCoordY = (float)((int)(blockType.textureTop/32.0f));
 						texCoordX = (blockType.textureTop - texCoordY*32.0f)*textureIncrement;
@@ -606,7 +645,10 @@ public class ChunkManager {
 						tempVertices.add(chunk.position.y + z);
 						
 							}
-						}else {
+						}else if (chunkCheckNegZ != null){
+							
+							if (!chunkCheckNegZ.blocks[(int) x][(int) y][(int) (15)].isActive || chunkCheckNegZ.blocks[(int) x][(int) y][(int) (15)].blockType.transparent && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
+							
 							tempTexCoords.add(texCoordX);
 							tempTexCoords.add(texCoordY+textureIncrement);
 							
@@ -653,6 +695,7 @@ public class ChunkManager {
 							tempVertices.add(chunk.position.x + x+1);
 							tempVertices.add(y+1);
 							tempVertices.add(chunk.position.y + z);
+							}
 						}
 						
 						//Front
@@ -713,7 +756,10 @@ public class ChunkManager {
 						tempVertices.add(y);
 						tempVertices.add(chunk.position.y + z+1);
 							}
-						}else {
+						}else if (chunkCheckPosZ != null){
+							
+							if (!chunkCheckPosZ.blocks[(int) x][(int) y][(int) (0)].isActive || chunkCheckPosZ.blocks[(int) x][(int) y][(int) (0)].blockType.transparent && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
+							
 							tempTexCoords.add(texCoordX+textureIncrement);
 							tempTexCoords.add(texCoordY+textureIncrement);
 							
@@ -762,6 +808,8 @@ public class ChunkManager {
 							tempVertices.add(chunk.position.x + x+1);
 							tempVertices.add(y);
 							tempVertices.add(chunk.position.y + z+1);
+							
+							}
 						}
 						
 						//Left
@@ -822,7 +870,10 @@ public class ChunkManager {
 						tempVertices.add(y);
 						tempVertices.add(chunk.position.y + z+1);
 							}
-						}else {
+						}else if (chunkCheckNegX != null){
+							
+							if (!chunkCheckNegX.blocks[(int) 15][(int) y][(int) (z)].isActive || chunkCheckNegX.blocks[(int) 15][(int) y][(int) (z)].blockType.transparent && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
+							
 							tempTexCoords.add(texCoordX+textureIncrement);
 							tempTexCoords.add(texCoordY+textureIncrement);
 							
@@ -871,6 +922,7 @@ public class ChunkManager {
 							tempVertices.add(chunk.position.x + x);
 							tempVertices.add(y);
 							tempVertices.add(chunk.position.y + z+1);
+							}
 						}
 						
 						//Right
@@ -929,7 +981,10 @@ public class ChunkManager {
 						tempVertices.add(y+1);
 						tempVertices.add(chunk.position.y + z+1);
 							}
-						}else {
+						}else if (chunkCheckPosX != null){
+							
+							if (!chunkCheckPosX.blocks[(int) 0][(int) y][(int) (z)].isActive || chunkCheckPosX.blocks[(int) 0][(int) y][(int) (z)].blockType.transparent && !chunk.blocks[(int) x][(int) y][(int) z].blockType.transparent) {
+							
 							tempTexCoords.add(texCoordX);
 							tempTexCoords.add(texCoordY+textureIncrement);
 							
@@ -976,6 +1031,7 @@ public class ChunkManager {
 							tempVertices.add(chunk.position.x + x+1);
 							tempVertices.add(y+1);
 							tempVertices.add(chunk.position.y + z+1);
+							}
 						}
 			
 			
@@ -985,6 +1041,8 @@ public class ChunkManager {
 		
 		
 	}
+	
+
 	
 	
 }

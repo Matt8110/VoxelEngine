@@ -9,6 +9,7 @@ import org.lwjgl.util.vector.Vector2f;
 
 import Blocks.Chunk;
 import Blocks.ChunkManager;
+import Blocks.ColorBlock;
 import Core.Shader;
 import Gui.Font;
 import Gui.Text;
@@ -18,6 +19,7 @@ import Utils.*;
 public class Main {
 
 	public static MainShader shader;
+	public static ColorShader colorShader;
 	public static Shader shader2D, textShader;
 	
 	public static int fov = 90;
@@ -25,7 +27,7 @@ public class Main {
 	public static float far = 1000.0f;
 	public static float mouseSensitivity = 0.075f;
 	
-	public static long lastTime = 0, fpsLastTime = 0, fps = 0;
+	public static long lastTime = 0, fpsLastTime = 0, fps = 0, lastTickTime;
 	public static float deltaTime = 0;
 	public static boolean isRunning = true;
 	
@@ -34,6 +36,8 @@ public class Main {
 	
 	public static Font font;
 	public static Text text, memUse, renChunks;
+	
+	public static FBO selectionFBO;
 	
 	public static int renderCalls = 0;
 	
@@ -48,15 +52,21 @@ public class Main {
 		@SuppressWarnings("unused")
 		int startMemory = GL11.glGetInteger(0x9049);
 		
+		selectionFBO = new FBO(512, 512);
+		selectionFBO.addDepthAttachment();
+		selectionFBO.addTextureAttachment();
+		
 		Mouse.setGrabbed(true);
 		
 		shader = new MainShader("shaders/vertex.vert", "shaders/fragment.frag");
 		shader2D = new Shader("shaders/2d.vert", "shaders/2d.frag");
 		textShader = new Shader("shaders/text.vert", "shaders/text.frag");
+		colorShader = new ColorShader("shaders/vertexColor.vert", "shaders/fragmentColor.frag");
 		
 		font = new Font("Fonts/candara.fnt");
 		
 		Texture2D crosshair = new Texture2D("crosshair.png", new Vector2f(Display.getWidth()/2-16, Display.getHeight()/2-16), new Vector2f(32, 32));
+		
 		
 		Camera.initCamera();
 		
@@ -66,7 +76,7 @@ public class Main {
 		
 		text = new Text(font, "                       ", 16, 16, 0.5f);
 		memUse = new Text(font, "                       ", 16, 64, 0.5f);
-		renChunks = new Text(font, "o                      ", 16, 96, 0.5f);
+		renChunks = new Text(font, "                       ", 16, 96, 0.5f);
 		
 		lastTime = System.currentTimeMillis();
 		fpsLastTime = System.currentTimeMillis();
@@ -107,7 +117,7 @@ public class Main {
 			
 			if (state == State.GAME) {
 				
-				GL11.glClearColor(0.4f, 0.4f, 1.0f, 1.0f);
+				GL11.glClearColor(0.54f, 0.70f, 1.0f, 1.0f);
 			
 				shader.useShader();
 				
@@ -116,9 +126,14 @@ public class Main {
 				//memUse.updateText(String.valueOf((startMemory - GL11.glGetInteger(0x9049))/1000));
 				//memUse.updateText(String.valueOf(ChunkManager.renderChunks.size()));
 				
+				
+				
+				
+				shader.setTransformation(0, 0, 0, 1.0f);
 				ChunkManager.renderChunks();
 				
 				renChunks.updateText("Rendering " + renderCalls + "/" + ChunkManager.renderChunks.size() + " Chunks");
+				//renChunks.updateText("X: " + (int)Camera.position.x + " Y: " + (int)Camera.position.y + " Z: " + (int)Camera.position.z);	
 				
 				Camera.updateCamera(deltaTime);
 				
@@ -128,7 +143,7 @@ public class Main {
 				
 				//Draw loading screen to avoid seeing chunks loading
 				if (!ChunkManager.hasLoaded && !ChunkManager.buildChunks.isEmpty()) {
-					ChunkManager.background.render();
+					//ChunkManager.background.render();
 					//ChunkManager.generating.render();
 				}else {
 					ChunkManager.hasLoaded = true;
@@ -153,7 +168,7 @@ public class Main {
 		Display.destroy();
 		isRunning = false;
 		
-		for (Chunk chunk : ChunkManager.renderChunks) {
+		for (Chunk chunk : ChunkManager.renderChunks.values()) {
 			Utils.saveChangesToFile(chunk);
 			
 		}
@@ -168,19 +183,19 @@ public class Main {
 		
 		try {
 			
-		if (fullscreen) {
-			Display.setDisplayMode(Display.getDesktopDisplayMode());
+			if (fullscreen) {
+				Display.setDisplayMode(Display.getDesktopDisplayMode());
+				
+			}else {
+				Display.setDisplayMode(new DisplayMode(1024, 768));
+			}
 			
-		}else {
-			Display.setDisplayMode(new DisplayMode(1280, 1024));
-		}
-		
-		GL11.glViewport(0, 0, Display.getWidth(), Display.getHeight());
-		
-		shader.useShader();
-		shader.resetProjectionMatrix();
-		
-		Display.setFullscreen(fullscreen);
+			GL11.glViewport(0, 0, Display.getWidth(), Display.getHeight());
+			
+			shader.useShader();
+			shader.resetProjectionMatrix();
+			
+			Display.setFullscreen(fullscreen);
 		
 		}catch(Exception e) {
 			e.printStackTrace();

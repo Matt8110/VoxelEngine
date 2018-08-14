@@ -11,10 +11,10 @@ public class Ray {
 	private float checkXOrig, checkYOrig, checkZOrig;
 	private float dirX, dirY, dirZ;
 	private int chunkX, chunkZ;
-	private int chunkToCheck;
+	private String chunkToCheck;
 	private Block block;
 	
-	public int getChunk() {
+	public String getChunk() {
 		return chunkToCheck;
 	}
 	
@@ -61,12 +61,12 @@ public class Ray {
 			
 			//System.out.println(checkY);
 			
-			if (chunkToCheck != -1) {
+			if (chunkToCheck != null) {
 				
-				if (ChunkManager.renderChunks.size() >= chunkToCheck && checkX < ChunkManager.chunkWidth && checkZ < ChunkManager.chunkWidth && checkY < ChunkManager.chunkHeight)
+				if (checkX < ChunkManager.chunkWidth && checkZ < ChunkManager.chunkWidth && checkY < ChunkManager.chunkHeight)
 					block = ChunkManager.renderChunks.get(chunkToCheck).blocks[checkX][checkY][checkZ];
 				
-				if (block.isActive) {
+				if (block.isActive && block.blockType.collideable) {
 					return y - checkY;
 				}
 				
@@ -79,6 +79,34 @@ public class Ray {
 		}
 		
 		return 10000;
+		
+	}
+	
+	public Block castRay(float x, float y, float z, float rotX, float rotY, float maxDistance, float iterations) {
+		
+		direction.x = (float) Math.sin(Math.toRadians(rotY));
+		direction.y = (float) -Math.tan(Math.toRadians(rotX));
+		direction.z = (float) -Math.cos(Math.toRadians(rotY));
+		
+		direction.normalise();
+		
+		Block block = null;
+		
+		for (float i = 0; i < maxDistance; i += iterations) {
+			
+			checkX = (int) Math.floor(x + (direction.x * i));
+			checkY = (int) Math.floor(y + (direction.y * i));
+			checkZ = (int) Math.floor(z + (direction.z * i));
+			
+			block = Utils.getBlock(checkX, checkY, checkZ);
+			
+			if (block != null && block.isActive)
+				return block;
+				
+			
+		}
+		
+		return null;
 		
 	}
 	
@@ -114,7 +142,7 @@ public class Ray {
 			
 			chunkToCheck = ChunkManager.getChunkListLocation(chunkX * ChunkManager.chunkWidth, chunkZ * ChunkManager.chunkWidth, ChunkManager.renderChunks);
 			
-			if (chunkToCheck != -1) {
+			if (chunkToCheck != null) {
 				
 				block = ChunkManager.renderChunks.get(chunkToCheck).blocks[checkX][checkY][checkZ];
 				

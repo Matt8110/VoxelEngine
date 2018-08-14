@@ -18,17 +18,20 @@ public class Texture2D {
 		this.position = position;
 		this.scale = scale;
 		
-		init(textureFile);
+		loadTexture(textureFile);
+		init();
 		
 	}
 	
-	/*public Texture2D(String textureFile) {
+	public Texture2D(int texture, Vector2f position, Vector2f scale) {
 		
-		position = new Vector2f();
-		scale = new Vector2f();
-		init(textureFile);
+		this.position = position;
+		this.scale = scale;
+		this.texture = texture;
 		
-	}*/
+		init();
+		
+	}
 	
 	public void render() {
 		
@@ -42,9 +45,11 @@ public class Texture2D {
 		
 	}
 	
-	private void init(String textureFile) {
-		
+	private void loadTexture(String textureFile) {
 		texture = Utils.loadTexture(textureFile);
+	}
+	
+	private void init() {
 		
 		float scalerX = (2.0f / Display.getWidth());
 		float scalerY = (2.0f / Display.getHeight());

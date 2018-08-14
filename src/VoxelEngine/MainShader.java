@@ -11,6 +11,8 @@ public class MainShader extends Shader{
 	private int projectionMatrixPosition;
 	private int viewMatrixPosition;
 	private int transformationMatrixPosition;
+	private Vector3f position = new Vector3f();
+	private Vector3f rotation = new Vector3f();
 	
 	public MainShader(String vertexShader, String fragmentShader) {
 		super(vertexShader, fragmentShader);
@@ -20,7 +22,7 @@ public class MainShader extends Shader{
 		transformationMatrixPosition = super.getUniformLocation("transformationMatrix");
 		
 		useShader();
-		super.setMatrix4(projectionMatrixPosition, Utils.getProjectionMatrix(Main.fov, 0.01f, 1000));
+		super.setMatrix4(projectionMatrixPosition, Utils.getProjectionMatrix(Main.fov, Main.near, Main.far));
 		
 	}
 	
@@ -34,8 +36,15 @@ public class MainShader extends Shader{
 		
 		super.setMatrix4(viewMatrixPosition, Utils.getViewMatrix());
 		
-		//Temporary / Fallback
-		super.setMatrix4(transformationMatrixPosition, Utils.getTransformtionMatrix(new Vector3f(), new Vector3f(), 1.0f));
+	}
+	
+	public void setTransformation(float x, float y, float z, float scale) {
+		
+		position.x = x;
+		position.y = y;
+		position.z = z;
+		
+		super.setMatrix4(transformationMatrixPosition, Utils.getTransformtionMatrix(position, rotation, scale));
 		
 	}
 

@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.nio.FloatBuffer;
 import java.util.Formatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -17,7 +18,9 @@ import org.lwjgl.util.vector.Vector3f;
 import org.newdawn.slick.opengl.Texture;
 import org.newdawn.slick.opengl.TextureLoader;
 
+import Blocks.Block;
 import Blocks.Chunk;
+import Blocks.ChunkManager;
 import VoxelEngine.Camera;
 
 public class Utils {
@@ -55,6 +58,141 @@ public class Utils {
 		}catch(Exception e) {
 			System.err.println("ERROR: Player data missing or corrupt");
 		}
+		
+	}
+	
+	public static Block getBlock(float x, float y, float z) {
+		
+		int chunkX = (int)Math.floor(x / ChunkManager.chunkWidth);
+		int chunkZ = (int)Math.floor(z / ChunkManager.chunkWidth);
+		int blockX = (int)Math.floor(x - chunkX * ChunkManager.chunkWidth);
+		int blockY = (int)y;
+		int blockZ = (int)Math.floor(z - chunkZ * ChunkManager.chunkWidth);
+		
+		Chunk chunk = getChunkAtRenderedOnly(chunkX * ChunkManager.chunkWidth, chunkZ * ChunkManager.chunkWidth);
+		
+		if (chunk != null &&
+				blockX >= 0 && blockX <= 15 &&
+				blockY >= 0 && blockY <= 127 &&
+				blockZ >= 0 && blockZ <= 15)
+			return chunk.blocks[blockX][blockY][blockZ];
+		else
+			return null;
+		
+	}
+	
+	public static void rebuildChunkByBlock(float x, float y, float z) {
+		
+		int chunkX = (int)Math.floor(x / ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+		int chunkZ = (int)Math.floor(z / ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+		int blockX = (int) (x - chunkX);
+		int blockZ = (int) (z - chunkZ);
+		Chunk chunk = null;
+		
+		if (blockX == 15) {
+			chunk = getChunkAtRenderedOnly(chunkX + ChunkManager.chunkWidth, chunkZ);
+			chunk.needsRebuilt = true;
+			putChunkIntoMap(chunk, ChunkManager.buildChunks);
+		}
+		if (blockX == 0) {
+			chunk = getChunkAtRenderedOnly(chunkX - ChunkManager.chunkWidth, chunkZ);
+			chunk.needsRebuilt = true;
+			putChunkIntoMap(chunk, ChunkManager.buildChunks);
+		}
+		if (blockZ == 15) {
+			chunk = getChunkAtRenderedOnly(chunkX, chunkZ + ChunkManager.chunkWidth);
+			chunk.needsRebuilt = true;
+			putChunkIntoMap(chunk, ChunkManager.buildChunks);
+		}
+		if (blockZ == 0) {
+			chunk = getChunkAtRenderedOnly(chunkX, chunkZ - ChunkManager.chunkWidth);
+			chunk.needsRebuilt = true;
+			putChunkIntoMap(chunk, ChunkManager.buildChunks);
+		}
+			
+		
+		chunk = getChunkAtRenderedOnly(chunkX, chunkZ);
+		chunk.needsRebuilt = true;
+		putChunkIntoMap(chunk, ChunkManager.buildChunks);
+	}
+	
+	public static void saveBlockBreak(float x, float y, float z) {
+		
+		int chunkX = (int)Math.floor(x / ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+		int chunkZ = (int)Math.floor(z / ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+		int blockX = (int) (x - chunkX);
+		int blockY = (int) y;
+		int blockZ = (int) (z - chunkZ);
+		
+		getChunkAtRenderedOnly(chunkX, chunkZ).changes.put(blockX + "" + blockY + "" + blockZ, "0 " + blockX + " " + blockY + " " + blockZ + " ");
+		
+	}
+	
+	public static void saveBlockPlace(float x, float y, float z, int blockType) {
+		
+		int chunkX = (int)Math.floor(x / ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+		int chunkZ = (int)Math.floor(z / ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+		int blockX = (int) (x - chunkX);
+		int blockY = (int) y;
+		int blockZ = (int) (z - chunkZ);
+		
+		getChunkAtRenderedOnly(chunkX, chunkZ).changes.put(blockX + "" + blockY + "" + blockZ, "1 " + blockType + " " + blockX + " " + blockY + " " + blockZ + " ");
+		
+	}
+	
+	public static Chunk getChunkAtRenderedOnly(float x, float z) {
+		
+		String chunkCheckValue = ChunkManager.getChunkListLocation(x, z, ChunkManager.renderChunks);
+		Chunk chunkCheck = null;
+		
+		if (chunkCheckValue != null)
+			chunkCheck = ChunkManager.renderChunks.get(chunkCheckValue);
+		else
+			chunkCheck = null;
+		
+		return chunkCheck;
+		
+	}
+	
+	public static void putChunkIntoMap(Chunk chunk, Map<String, Chunk> map) {
+		
+		map.put((int)chunk.position.x + "" + (int)chunk.position.y, chunk);
+		
+	}
+	
+	public static void removeChunkFromMap(Chunk chunk, Map<String, Chunk> map) {
+			
+		map.remove((int)chunk.position.x + "" + (int)chunk.position.y);
+			
+	}
+	
+	public static Chunk getChunkAt(float x, float z) {
+		
+		String chunkCheckValue = ChunkManager.getChunkListLocation(x, z, ChunkManager.renderChunks);
+		Chunk chunkCheck = null;
+		
+		if (chunkCheckValue != null)
+			chunkCheck = ChunkManager.renderChunks.get(chunkCheckValue);
+		else {
+			chunkCheckValue = ChunkManager.getChunkListLocation(x, z, ChunkManager.buildChunks);
+			
+			if (chunkCheckValue != null)
+				chunkCheck = ChunkManager.buildChunks.get(chunkCheckValue);
+			else{
+				
+				chunkCheckValue = ChunkManager.getChunkListLocation(x, z, ChunkManager.waitingChunks);
+				
+				if (chunkCheckValue != null)
+					chunkCheck = ChunkManager.waitingChunks.get(chunkCheckValue);
+				else
+					chunkCheck = null;
+				
+			}
+		}
+		
+		//System.out.println(chunkCheckValue);
+		
+		return chunkCheck;
 		
 	}
 	

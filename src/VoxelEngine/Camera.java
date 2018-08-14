@@ -1,14 +1,22 @@
 package VoxelEngine;
 
+import java.nio.FloatBuffer;
+
+import org.lwjgl.BufferUtils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
+import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.vector.Matrix4f;
 import org.lwjgl.util.vector.Vector3f;
 
+import Blocks.Block;
+import Blocks.BlockSelection;
+import Utils.Utils;
 import Blocks.BlockType;
 import Blocks.Chunk;
 import Blocks.ChunkManager;
+import Blocks.ColorBlock;
 import Utils.Ray;
 
 public class Camera {
@@ -18,7 +26,7 @@ public class Camera {
 	public static float speed = 0.0040f;
 	public static float staticSpeed = 0.0040f;
 	public static float walkSpeed = 0.0040f;
-	public static float runSpeed = 0.0060f;
+	public static float runSpeed = 0.00650f;
 	public static float playerHeight = 1.75f;
 	public static float vSpeed = 0;
 	public static float gravity = 0.000050f;
@@ -41,7 +49,6 @@ public class Camera {
 	private static float lastZInc = 0;
 	
 	private static Ray ray = new Ray();
-	private static Vector3f rayResult;
 	
 	private static boolean mouseRightWasDown = false;
 	private static boolean mouseLeftWasDown = false;
@@ -52,16 +59,22 @@ public class Camera {
 	
 	//Block placing variables
 	private static int checkX, checkY, checkZ;
-	private static float checkXIf, checkYIf, checkZIf;
 	private static int currentBlockToPlace = 0;
 	private static int mouseWheel = 0;
+	private static FloatBuffer colorValue = BufferUtils.createFloatBuffer(3);
 	
 	private static float boundX1, boundX2, boundY2, boundZ1, boundZ2;
 	private static float boundBoxSize = 0.60f / 2.0f;
 	
+	private static BlockSelection blockSelection;
+	private static ColorBlock cb;
+	
 	public static Matrix4f MVP = new Matrix4f();
 	
 	public static void initCamera() {
+		
+		blockSelection = new BlockSelection();
+		cb = new ColorBlock();
 		
 		rotation.x = 0;
 		rotation.y = 0;
@@ -74,7 +87,7 @@ public class Camera {
 		movement(deltaTime);
 		handlePlayerCollisions(deltaTime);
 		
-		MVP = Matrix4f.mul(Utils.Utils.getProjectionMatrix(Main.fov, Main.near, Main.far), Utils.Utils.getCullingViewMatrix(), null);
+		MVP = Matrix4f.mul(Utils.getProjectionMatrix(Main.fov, Main.near, Main.far), Utils.getCullingViewMatrix(), null);
 		
 		addAndRemoveBlocks();
 		
@@ -186,10 +199,10 @@ public class Camera {
 		
 		float rayVal = ray.castHeightRay(position.x, position.y, position.z, 90, 0, 10.0f);
 		
-		if (rayVal < 1 + playerHeight - 0.02f && rayVal != -1) {
+		if (rayVal < 1 + playerHeight - 0.04f && rayVal != -1) {
 			
-			if (boundY2 + 0.1f < 128) {
-				if (checkCollisionAt(position.x, boundY2 + 0.1f, position.z)) {
+			if (boundY2 + 0.4f < 128) {
+				if (checkCollisionAt(position.x, boundY2 + 0.2f, position.z)) {
 					position.y = lastY;
 					vSpeed = 0;
 				}else {
@@ -217,13 +230,13 @@ public class Camera {
 		
 		
 		
-		int chunkToCheck = ChunkManager.getChunkListLocation(chunkX * ChunkManager.chunkWidth, chunkZ * ChunkManager.chunkWidth, ChunkManager.renderChunks);
+		String chunkToCheck = ChunkManager.getChunkListLocation(chunkX * ChunkManager.chunkWidth, chunkZ * ChunkManager.chunkWidth, ChunkManager.renderChunks);
 		
-		if (chunkToCheck != -1) {
+		if (chunkToCheck != null) {
 			Chunk chunk = ChunkManager.renderChunks.get(chunkToCheck);
 			
 			
-			if (chunk.blocks[checkX][checkY][checkZ].isActive) {
+			if (chunk.blocks[checkX][checkY][checkZ].isActive && chunk.blocks[checkX][checkY][checkZ].blockType.collideable) {
 				return true;
 			}
 		}
@@ -234,6 +247,29 @@ public class Camera {
 	
 	private static void addAndRemoveBlocks() {
 		
+		Block block = null;
+		
+		//Cast ray for block interaction
+		if (!ChunkManager.renderChunks.isEmpty())
+			block = ray.castRay(position.x, position.y, position.z, rotation.x, rotation.y, 6.0f, 0.01f);
+		
+		//Draw the white lines around the selected block
+		if (block != null) {
+			Main.colorShader.useShader();
+			blockSelection.render(ray.getBlockPosition().x, ray.getBlockPosition().y, ray.getBlockPosition().z);
+			
+			//Drawing the cube to know which side you're placing on
+			Main.selectionFBO.bindFBO();
+			GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+			Main.colorShader.setTransformation(ray.getBlockPosition().x, ray.getBlockPosition().y, ray.getBlockPosition().z, 1.0f);
+			cb.render();
+			
+			//GL11.glReadPixels(Main.selectionFBO.width/2, Main.selectionFBO.height/2, 1, 1, GL11.GL_RGB, GL11.GL_FLOAT, colorValue);
+			
+			Main.shader.useShader();
+		}
+		
+		//Block selection
 		mouseWheel = Mouse.getDWheel();
 		
 		if (mouseWheel > 0) {
@@ -253,39 +289,20 @@ public class Camera {
 		leftMouse = Mouse.isButtonDown(0);
 		rightMouse = Mouse.isButtonDown(1);
 		
+		//Block breaking
 		if (!mouseLeftWasDown && leftMouse) {
 			
 			mouseLeftWasDown = true;
-			
-			rayResult = ray.castRayIntoBlocks(position.x, position.y, position.z, rotation.x, rotation.y, 10.0f);
-				
-			//Break block
-			if (rayResult != null) {
-				ray.getBlock().isActive = false;
-				ChunkManager.renderChunks.get(ray.getChunk()).needsRebuilt = true;
-				
-				//if (ChunkManager.renderChunks.get(ray.getChunk()).changes.containsKey((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z))
-					//ChunkManager.renderChunks.get(ray.getChunk()).changes.remove((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z);
-				//else
-					ChunkManager.renderChunks.get(ray.getChunk()).changes.put((int)ray.getBlockPosition().x + "" + (int)ray.getBlockPosition().y + "" + (int)ray.getBlockPosition().z,"0 " + (int)ray.getBlockPosition().x + " " + (int)ray.getBlockPosition().y + " " + (int)ray.getBlockPosition().z + " ");
-				
-			}
-			
+			breakBlock(block);
 			
 		}
 		
+		//Block placing
 		if (!mouseRightWasDown && rightMouse) {
 			
 			mouseRightWasDown = true;
+			placeBlock(block);
 			
-			rayResult = ray.castRayIntoBlocks(position.x, position.y, position.z, rotation.x, rotation.y, 10.0f);
-				
-		
-			//Place block
-			if (rayResult != null) {
-				placeBlock(ray.getBlockPosition(), ray.getOriginalBlockPosition(), ray.getChunk());
-				ChunkManager.renderChunks.get(ray.getChunk()).needsRebuilt = true;
-			}
 		}
 		
 		
@@ -296,138 +313,71 @@ public class Camera {
 			mouseRightWasDown = false;
 		}
 		
+		Main.selectionFBO.unbindFBO();
+		
 	}
 	
-	private static void placeBlock(Vector3f blockPosition, Vector3f rayPosition, int chunk) {
+	private static void breakBlock(Block block) {
 		
+		if (block != null) {
+			
+			Vector3f blockPosition = ray.getBlockPosition();
+			
+			block.isActive = false;
+			Utils.saveBlockBreak(blockPosition.x, blockPosition.y, blockPosition.z);
+			Utils.rebuildChunkByBlock((int)blockPosition.x, (int)blockPosition.y, (int)blockPosition.z);
+				
+		}
 		
-		checkX = (int) blockPosition.x;
-		checkY = (int) blockPosition.y;
-		checkZ = (int) blockPosition.z;
+	}
+	
+	private static void placeBlock(Block block) {
 		
-		checkXIf = rayPosition.x - blockPosition.x;
-		checkYIf = rayPosition.y - blockPosition.y;
-		checkZIf = rayPosition.z - blockPosition.z;
+		if (block != null) {
+			
+			GL11.glReadPixels(Main.selectionFBO.width/2, Main.selectionFBO.height/2, 1, 1, GL11.GL_RGB, GL11.GL_FLOAT, colorValue);
 		
-		//System.out.println(checkXIf + " " + checkYIf + " " + checkZIf);
-		
-		if (!ChunkManager.renderChunks.get(chunk).blocks[checkX][checkY][checkZ].blockType.canUse)
-			if (checkXIf > 0.95f || checkYIf > 0.95f || checkZIf > 0.95f) {
+			float r = colorValue.get(0);
+			float g = colorValue.get(1);
+			float b = colorValue.get(2);
+			Vector3f blockPosition = ray.getBlockPosition();
+			Vector3f blockPlacePosition = blockPosition;
+			
+			
+			
 				
-			// X+
-			if (checkX+1 <16) {
-				if (checkXIf > checkYIf && checkXIf > checkZIf) {
-					
-					int blockID = currentBlockToPlace;
-					ChunkManager.renderChunks.get(chunk).changes.put((int) (checkX+1) + "" + (int) (checkY) + "" + (int) (checkZ), "1 " + blockID + " " + (int) (checkX+1) + " " + (int) checkY + " " + (int) checkZ + " ");
-					
-					ChunkManager.renderChunks.get(chunk).blocks[(int) (checkX+1)][(int) checkY][(int) checkZ].isActive = true;
-					ChunkManager.renderChunks.get(chunk).blocks[(int) (checkX+1)][(int) checkY][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
-				}
-			}else if (checkX+1 == 16 && checkXIf > 0.95f){
+			//Back z-
+			if (r == 1.0f && g == 0.0f && b == 0.0f)
+				blockPlacePosition.z -= 1;
+			//Front z+
+			if (r == 0.0f && g == 1.0f && b == 0.0f)
+				blockPlacePosition.z += 1;
+			//Left x-
+			if (r == 0.0f && g == 0.0f && b == 1.0f) 
+				blockPlacePosition.x -= 1;
+			//Right x+
+			if (r == 1.0f && g == 1.0f && b == 0.0f)
+				blockPlacePosition.x += 1;
+			//Bottom y-
+			if (r == 1.0f && g == 1.0f && b == 1.0f)
+				blockPlacePosition.y -= 1;
+			//Bottom y+
+			if (r == 1.0f && g == 0.0f && b == 1.0f)
+				blockPlacePosition.y += 1;
 				
-				Chunk tempChunk = ChunkManager.renderChunks.get(ChunkManager.getChunkListLocation(ChunkManager.renderChunks.get(chunk).position.x+ChunkManager.chunkWidth, ChunkManager.renderChunks.get(chunk).position.y, ChunkManager.renderChunks));
+			if ( !(((int)blockPlacePosition.x == (int)position.x && (int)blockPlacePosition.z == (int)position.z && (int)blockPlacePosition.y == (int)position.y - 1) ||
+				   ((int)blockPlacePosition.x == (int)position.x && (int)blockPlacePosition.y == (int)position.y && (int)blockPlacePosition.z == (int)position.z))) {
 				
-				int blockID = currentBlockToPlace;
-				tempChunk.changes.put((int) (0) + "" + (int) (checkY) + "" + (int) (checkZ),"1 " + blockID + " " + (int) (0) + " " + (int) checkY + " " + (int) checkZ + " ");
+				Utils.getBlock(blockPlacePosition.x, blockPlacePosition.y, blockPlacePosition.z).isActive = true;
+				Utils.getBlock(blockPlacePosition.x, blockPlacePosition.y, blockPlacePosition.z).blockType = BlockType.getByInt(currentBlockToPlace);
+				Utils.rebuildChunkByBlock(blockPlacePosition.x, blockPlacePosition.y, blockPlacePosition.z);
 				
-				tempChunk.blocks[(int) (0)][(int) checkY][(int) checkZ].isActive = true;
-				tempChunk.blocks[(int) (0)][(int) checkY][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
-				tempChunk.needsRebuilt = true;
-			}
-				
-			// Y+
-			if (checkYIf > checkXIf && checkYIf > checkZIf && checkY+1 < 120) {
-				
-				int blockID = currentBlockToPlace;
-				Chunk tempChunk = ChunkManager.renderChunks.get(chunk);
-				tempChunk.changes.put((int) (checkX) + "" + (int) (checkY+1) + "" + (int) (checkZ),"1 " + blockID + " " + (int) (checkX) + " " + (int) (checkY+1) + " " + (int) checkZ + " ");
-				
-				if (checkX+tempChunk.position.x == (int)position.x && checkY+1 == (int)position.y - 1 && checkZ+tempChunk.position.y == (int)position.z) {}
-				else {
-					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY+1)][(int) checkZ].isActive = true;
-					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY+1)][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
-				}
-				
-			}
-			// Z+
-			if (checkZ+1 <16) {
-				if (checkZIf > checkYIf && checkZIf > checkXIf) {
-					
-					int blockID = currentBlockToPlace;
-					ChunkManager.renderChunks.get(chunk).changes.put((int) (checkX) + "" + (int) (checkY) + "" + (int) (checkZ+1), "1 " + blockID + " " + (int) (checkX) + " " + (int) checkY + " " + (int) (checkZ+1) + " ");
-					
-					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) checkY][(int) (checkZ+1)].isActive = true;
-					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) checkY][(int) (checkZ+1)].blockType = BlockType.getByInt(currentBlockToPlace);
-				}
-			}else if (checkZ+1 == 16 && checkZIf > 0.95f){
-				
-				Chunk tempChunk = ChunkManager.renderChunks.get(ChunkManager.getChunkListLocation(ChunkManager.renderChunks.get(chunk).position.x, ChunkManager.renderChunks.get(chunk).position.y+ChunkManager.chunkWidth, ChunkManager.renderChunks));
-				
-				int blockID = currentBlockToPlace;
-				tempChunk.changes.put((int) (checkX) + "" + (int) (checkY) + "" + (int) (0), "1 " + blockID + " " + (int) checkX + " " + (int) checkY + " " + (int) 0 + " ");
-				
-				tempChunk.blocks[(int) checkX][(int) checkY][(int) 0].isActive = true;
-				tempChunk.blocks[(int)checkX][(int) checkY][(int) 0].blockType = BlockType.getByInt(currentBlockToPlace);
-				tempChunk.needsRebuilt = true;
-				
+				Utils.saveBlockPlace(blockPlacePosition.x, blockPlacePosition.y, blockPlacePosition.z, currentBlockToPlace);
+			
 			}
 			
-			}else if (checkXIf < 0.05f || checkYIf < 0.05f || checkZIf < 0.05f){
-				
-			// X-
-			if (checkX-1 >= 0) {
-				if (checkXIf < checkYIf &&  checkXIf < checkZIf) {
-					
-					int blockID = currentBlockToPlace;
-					ChunkManager.renderChunks.get(chunk).changes.put((int) (checkX-1) + "" + (int) (checkY) + "" + (int) (checkZ), "1 " + blockID + " " + (int) (checkX-1) + " " + (int) checkY + " " + (int) checkZ + " ");
-					
-					ChunkManager.renderChunks.get(chunk).blocks[(int) (checkX-1)][(int) checkY][(int) checkZ].isActive = true;
-					ChunkManager.renderChunks.get(chunk).blocks[(int) (checkX-1)][(int) checkY][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
-				}
-			}else if (checkX-1 < 0 && checkXIf < 0.05f){
-				
-				Chunk tempChunk = ChunkManager.renderChunks.get(ChunkManager.getChunkListLocation(ChunkManager.renderChunks.get(chunk).position.x-ChunkManager.chunkWidth, ChunkManager.renderChunks.get(chunk).position.y, ChunkManager.renderChunks));
-				
-				int blockID = currentBlockToPlace;
-				tempChunk.changes.put((int) (ChunkManager.chunkWidth-1) + "" + (int) (checkY) + "" + (int) (checkZ), "1 " + blockID + " " + (int) (ChunkManager.chunkWidth-1) + " " + (int) checkY + " " + (int) checkZ + " ");
-				
-				tempChunk.blocks[(int) (ChunkManager.chunkWidth-1)][(int) checkY][(int) checkZ].isActive = true;
-				tempChunk.blocks[(int) (ChunkManager.chunkWidth-1)][(int) checkY][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
-				tempChunk.needsRebuilt = true;
-			}
-				
-			// Y-
-			if (checkYIf < checkXIf && checkYIf < checkZIf && checkY-1 > 0) {
-				
-				int blockID = currentBlockToPlace;
-				ChunkManager.renderChunks.get(chunk).changes.put((int) (checkX) + "" + (int) (checkY-1) + "" + (int) (checkZ), "1 " + blockID + " " + (int) (checkX) + " " + (int) (checkY-1) + " " + (int) checkZ + " ");
-				
-				ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY-1)][(int) checkZ].isActive = true;
-				ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) (checkY-1)][(int) checkZ].blockType = BlockType.getByInt(currentBlockToPlace);
-			}
-			// Z-
-			if (checkZ-1 >= 0) {
-				if (checkZIf < checkYIf && checkZIf < checkXIf) {
-					
-					int blockID = currentBlockToPlace;
-					ChunkManager.renderChunks.get(chunk).changes.put((int) (checkX) + "" + (int) (checkY) + "" + (int) (checkZ-1), "1 " + blockID + " " + (int) (checkX) + " " + (int) checkY + " " + (int) (checkZ-1) + " ");
-					
-					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) checkY][(int) (checkZ-1)].isActive = true;
-					ChunkManager.renderChunks.get(chunk).blocks[(int) checkX][(int) checkY][(int) (checkZ-1)].blockType = BlockType.getByInt(currentBlockToPlace);
-				}
-			}else if (checkZ-1 < 0 && checkZIf < 0.05f){
-				
-				Chunk tempChunk = ChunkManager.renderChunks.get(ChunkManager.getChunkListLocation(ChunkManager.renderChunks.get(chunk).position.x, ChunkManager.renderChunks.get(chunk).position.y-ChunkManager.chunkWidth, ChunkManager.renderChunks));
-				
-				int blockID = currentBlockToPlace;
-				tempChunk.changes.put((int) (checkX) + "" + (int) (checkY) + "" + (int) (ChunkManager.chunkWidth-1), "1 " + blockID + " " + (int) (checkX) + " " + (int) checkY + " " + (int) (ChunkManager.chunkWidth-1) + " ");
-				
-				tempChunk.blocks[(int) checkX][(int) checkY][(int) (ChunkManager.chunkWidth-1)].isActive = true;
-				tempChunk.blocks[(int)checkX][(int) checkY][(int) (ChunkManager.chunkWidth-1)].blockType = BlockType.getByInt(currentBlockToPlace);
-				tempChunk.needsRebuilt = true;
-			}
 		}
+		
 		
 	}
 		

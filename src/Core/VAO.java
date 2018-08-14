@@ -9,6 +9,7 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 import Utils.Utils;
+import VoxelEngine.Main;
 
 public class VAO {
 
@@ -25,6 +26,12 @@ public class VAO {
 	public VAO(float[] vertices, float[] texCoords) {
 		
 		putDataInVAO(vertices, texCoords);
+		
+	}
+	
+	public VAO(float[] vertices) {
+		
+		putDataInVAO(vertices);
 		
 	}
 	
@@ -62,6 +69,33 @@ public class VAO {
 		
 	}
 	
+	public void putDataInVAO(float[] vertices) {
+		
+		vertexCount = vertices.length/3;
+		
+		vaoID = GL30.glGenVertexArrays();
+		GL30.glBindVertexArray(vaoID);
+		
+		putDataInVBO(vertices, 0, 3);
+		
+		GL30.glBindVertexArray(0);
+		
+	}
+	
+	public void putDataInColorVAO(float[] vertices, float[] colors) {
+		
+	vertexCount = vertices.length/3;
+		
+		vaoID = GL30.glGenVertexArrays();
+		GL30.glBindVertexArray(vaoID);
+		
+		putDataInVBO(vertices, 0, 3);
+		putDataInVBO(colors, 1, 3);
+		
+		GL30.glBindVertexArray(0);
+		
+	}
+	
 	public void modifyVAO(float[] vertices, float[] normals, float[] texCoords) {
 		
 		vertexCount = vertices.length/3;
@@ -84,6 +118,18 @@ public class VAO {
 		
 		modifyVBO(vertices, 0);
 		modifyVBO(texCoords, 1);
+		
+		GL30.glBindVertexArray(0);
+		
+	}
+	
+	public void modifyVAO(float[] vertices) {
+		
+		vertexCount = vertices.length/2;
+		
+		GL30.glBindVertexArray(vaoID);
+		
+		modifyVBO(vertices, 0);
 		
 		GL30.glBindVertexArray(0);
 		
@@ -112,15 +158,54 @@ public class VAO {
 	
 	public void render() {
 		
-		GL30.glBindVertexArray(vaoID);
+		if (vertexCount > 0) {
 		
-		GL20.glEnableVertexAttribArray(0);
-		GL20.glEnableVertexAttribArray(1);
-		GL20.glEnableVertexAttribArray(2);
+			GL30.glBindVertexArray(vaoID);
+			
+			GL20.glEnableVertexAttribArray(0);
+			GL20.glEnableVertexAttribArray(1);
+			GL20.glEnableVertexAttribArray(2);
+			
+			GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, vertexCount);
+			
+			GL30.glBindVertexArray(0);
 		
-		GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, vertexCount);
+		}
 		
-		GL30.glBindVertexArray(0);
+	}
+	
+	public void renderColors() {
+		
+		if (vertexCount > 0) {
+		
+			GL30.glBindVertexArray(vaoID);
+			
+			GL20.glEnableVertexAttribArray(0);
+			GL20.glEnableVertexAttribArray(1);
+			
+			GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, vertexCount);
+			
+			GL30.glBindVertexArray(0);
+		
+		}
+		
+	}
+	
+	
+	public void renderLines() {
+		
+		if (vertexCount > 0) {
+		
+			GL30.glBindVertexArray(vaoID);
+			
+			GL20.glEnableVertexAttribArray(0);
+			GL20.glEnableVertexAttribArray(1);
+			
+			GL11.glDrawArrays(GL11.GL_LINES, 0, vertexCount);
+			
+			GL30.glBindVertexArray(0);
+		
+		}
 		
 	}
 	
